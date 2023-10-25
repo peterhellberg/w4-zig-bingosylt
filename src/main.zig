@@ -3,22 +3,6 @@ const w4 = @import("wasm4.zig");
 // Global state
 var s = State{};
 
-//
-// Exported functions for the WASM-4 game loop
-//
-
-export fn start() void {
-    s.start();
-}
-
-export fn update() void {
-    // Update the state
-    s.update();
-
-    // Draw the state
-    s.draw();
-}
-
 const State = struct {
     si: u2 = 0, // Scene index
     x: i32 = 0, // Mouse X
@@ -26,7 +10,7 @@ const State = struct {
     lf: u8 = 0, // Pressed last frame
     tf: u8 = 0, // Pressed this frame
 
-    life: i8 = 10, // Life
+    life: i8 = 5, // Life
     score: u8 = 0, // Some sort of game score
 
     // The input device (gamepad or mouse)
@@ -48,11 +32,7 @@ const State = struct {
     },
 
     fn start(_: *State) void {
-        var si: u2 = undefined;
-
-        _ = w4.diskr(@ptrCast(&si), @sizeOf(@TypeOf(si)));
-
-        w4.trace(
+        trace(
             \\ ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
             \\|   __ |_     _|    |  |     __|       |     __|   |   |     ||_     _|
             \\|   __ <_|   |_|       |    |  |   -   |__     |\     /|       ||   |
@@ -60,11 +40,15 @@ const State = struct {
             \\
         );
 
+        w4.PALETTE.* = s.palette;
+
+        var si: u2 = undefined;
+
+        _ = w4.diskr(@ptrCast(&si), @sizeOf(@TypeOf(si)));
+
         w4.tracef("Scene: %d", @as(u8, si));
 
         s.si = si;
-
-        w4.PALETTE.* = s.palette;
     }
 
     fn update(self: *State) void {
@@ -77,7 +61,7 @@ const State = struct {
     }
 
     fn draw(self: *State) void {
-        self.clear(2);
+        clear(2);
 
         // Draw the scene
         self.scenes[s.si].draw();
@@ -87,34 +71,18 @@ const State = struct {
         return self.tf & w4.MOUSE_LEFT != 0;
     }
 
-    fn text(_: *State, str: []const u8, x: i32, y: i32) void {
-        w4.text(str, x, y);
-    }
-
-    fn clear(_: *State, c: u8) void {
-        for (w4.FRAMEBUFFER) |*x| {
-            x.* = c | (c << 2) | (c << 4) | (c << 6);
-        }
-    }
-
     fn scene(self: *State, sceneIndex: u2) void {
         self.si = sceneIndex;
         self.save();
     }
 
     fn reset(self: *State) void {
-        self.life = 10;
+        self.life = 5;
     }
 
     fn save(self: *State) void {
         // Save the scene index to disk
         _ = w4.diskw(@ptrCast(&self.si), @sizeOf(@TypeOf(self.si)));
-    }
-
-    fn play(_: *State, tones: [2]Tone) void {
-        for (tones) |tone| {
-            tone.play();
-        }
     }
 };
 
@@ -146,9 +114,8 @@ const Intro = struct {
     }
 
     fn draw(_: Intro) void {
-        w4.DRAW_COLORS.* = 0x21;
-
-        s.text("INTRO", 8, 6);
+        color(0x21);
+        text("INTRO", 8, 6);
     }
 };
 
@@ -167,9 +134,15 @@ const Game = struct {
     }
 
     fn draw(_: Game) void {
-        w4.DRAW_COLORS.* = 0x31;
+        color(0x31);
+        text("GAME", 8, 6);
 
-        s.text("GAME", 8, 6);
+        var i: i32 = 0;
+
+        while (i <= s.life) : (i += 1) {
+            color(0x31);
+            rect(10, 30 - i, 10, 10);
+        }
     }
 };
 
@@ -181,9 +154,8 @@ const Over = struct {
     }
 
     fn draw(_: Over) void {
-        w4.DRAW_COLORS.* = 0x41;
-
-        s.text("GAME OVER!", 8, 6);
+        color(0x41);
+        text("GAME OVER!", 8, 6);
     }
 };
 
@@ -191,6 +163,30 @@ const Over = struct {
 const INTRO: u2 = 0;
 const GAME: u2 = 1;
 const OVER: u2 = 2;
+
+// Proxy functions for w4
+
+fn text(str: []const u8, x: i32, y: i32) void {
+    w4.text(str, x, y);
+}
+
+fn color(c: u8) void {
+    w4.DRAW_COLORS.* = c;
+}
+
+fn rect(x: i32, y: i32, width: u32, height: u32) void {
+    w4.rect(x, y, width, height);
+}
+
+fn trace(x: []const u8) void {
+    w4.trace(x);
+}
+
+fn clear(c: u8) void {
+    for (w4.FRAMEBUFFER) |*x| {
+        x.* = c | (c << 2) | (c << 4) | (c << 6);
+    }
+}
 
 // Tone that can play itself
 const Tone = struct {
@@ -233,3 +229,19 @@ var beep = Tone{
     .channel = 1,
     .mode = 0,
 };
+
+//
+// Exported functions for the WASM-4 game loop
+//
+
+export fn start() void {
+    s.start();
+}
+
+export fn update() void {
+    // Update the state
+    s.update();
+
+    // Draw the state
+    s.draw();
+}
