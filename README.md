@@ -16,7 +16,7 @@ Skapa din egen bingorad från bingobrickan nedanför. Du måste välja minst 2 r
 
 Skriva gärna på ditt spel vilka brickor du valde!
 
-![Bingo](https://img.itch.zone/aW1nLzEzNjk1MzgzLnBuZw==/original/B8xQp5.png)
+![Bingo](https://i.imgur.com/K96Cb2N.png)
 
 ## Building
 
