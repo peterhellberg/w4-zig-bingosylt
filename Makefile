@@ -23,3 +23,7 @@ bundle: all
 	w4 bundle zig-out/lib/cart.wasm --title Bingosylt --linux bundle/bingosylt.elf
 	# Windows (PE32+)
 	w4 bundle zig-out/lib/cart.wasm --title Bingosylt --windows bundle/bingosylt.exe
+
+.PHONY: backup
+backup: bundle
+	cp bundle/bingosylt.* /run/user/1000/gvfs/afp-volume:host=diskstation.local,user=peter,volume=backups/Code/Bingosylt
