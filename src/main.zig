@@ -167,15 +167,21 @@ const Over = struct {
         color(1);
         text("The game is over!", x + 1, y + 1);
 
+        self.death();
+    }
+
+    fn death(self: Over) void {
         self.cloak();
-        //self.death();
         self.scythe();
+        self.skull();
         self.hand();
     }
 
     fn cloak(_: Over) void {
         color(0x33);
         rect(69, 40, 25, 106); // middle body
+
+        // top left
 
         vline(51, 87, 2);
         vline(52, 86, 4);
@@ -197,8 +203,7 @@ const Over = struct {
         vline(67, 41, 49);
         vline(68, 40, 107);
 
-        vline(69, 40, 1);
-        vline(70, 39, 2);
+        vline(70, 39, 3);
         vline(71, 38, 3);
         vline(72, 37, 4);
         vline(73, 36, 5);
@@ -209,6 +214,33 @@ const Over = struct {
         vline(78, 33, 8);
         vline(79, 32, 9);
         vline(80, 32, 9);
+
+        // left sleeve
+
+        vline(60, 111, 5);
+        vline(61, 107, 11);
+        vline(62, 104, 16);
+        vline(63, 102, 18);
+
+        vline(64, 99, 48);
+        vline(65, 96, 51);
+        vline(66, 93, 54);
+        vline(67, 91, 56);
+
+        hline(65, 146, 35);
+        hline(70, 147, 25);
+
+        // left hem
+
+        vline(58, 140, 2);
+        vline(59, 138, 6);
+        vline(60, 135, 10);
+        vline(61, 132, 14);
+        vline(62, 129, 17);
+        vline(63, 124, 22);
+
+        // top right side
+
         vline(81, 32, 9);
         vline(82, 32, 9);
         vline(83, 32, 9);
@@ -223,9 +255,9 @@ const Over = struct {
         vline(92, 37, 4);
         vline(93, 38, 3);
 
-        vline(94, 39, 108);
+        vline(94, 39, 108); // right of center rect
 
-        // left side
+        // right top
 
         vline(95, 40, 46);
         vline(96, 41, 44);
@@ -238,35 +270,67 @@ const Over = struct {
         vline(103, 48, 28);
         vline(104, 49, 25);
         vline(105, 51, 20);
-        vline(105, 100, 21);
         vline(106, 53, 13);
-        vline(106, 101, 21);
-
         vline(107, 55, 6);
-        vline(107, 134, 10);
+
+        // right bottom
+        vline(95, 89, 57);
+        vline(96, 91, 55);
+        vline(97, 93, 53);
+        vline(98, 95, 51);
+        vline(99, 96, 50);
+
+        vline(100, 98, 26);
+        vline(101, 99, 22);
+        vline(102, 99, 23);
+        vline(103, 100, 22);
+        vline(104, 101, 20);
+        vline(105, 102, 19);
+        vline(106, 103, 16);
+
+        hline(100, 124, 1);
+        hline(100, 125, 1);
+        hline(100, 126, 1);
+        hline(100, 127, 1);
+        hline(100, 128, 2);
+        hline(100, 129, 2);
+        hline(100, 130, 3);
+        hline(100, 131, 3);
+        hline(100, 132, 4);
+        hline(100, 133, 5);
+
+        vline(100, 134, 12);
+        vline(101, 134, 11);
+        vline(102, 134, 11);
+        vline(103, 134, 11);
+        vline(104, 134, 11);
+        vline(105, 134, 10);
+        vline(106, 134, 10);
+        vline(107, 135, 9);
         vline(108, 136, 7);
     }
 
-    fn death(_: Over) void {
-        // cloak
-        color(0x33);
-        line(58, 50, 75, 33);
-        //oval(64, 33, 31, 47);
-        oval(54, 42, 51, 40);
-        oval(50, 83, 18, 8);
-        oval(56, 39, 46, 53);
-
-        // face
+    fn skull(_: Over) void {
         color(0x11);
-        oval(60, 42, 39, 37); // face skin
+        oval(60, 42, 40, 36);
 
+        color(0x33);
+        oval(65, 58, 12, 14);
+        oval(82, 58, 13, 14); // left eye
+
+        color(0x11);
+        rect(65, 56, 29, 5); // cut top eyes
+
+        // mouth
         color(0x31);
         oval(70, 75, 6, 6);
         oval(75, 76, 6, 6);
         oval(80, 76, 6, 6);
         oval(85, 75, 6, 6);
+
         color(0x11);
-        rect(69, 75, 21, 3);
+        rect(70, 75, 21, 2);
+        hline(70, 77, 19);
 
         color(0x11);
         oval(73, 81, 4, 5);
@@ -274,6 +338,7 @@ const Over = struct {
         oval(83, 81, 4, 5);
         oval(73, 83, 14, 3);
 
+        // nose
         color(0x33);
         line(77, 72, 79, 70);
         line(77, 73, 79, 71);
@@ -281,44 +346,41 @@ const Over = struct {
         line(81, 73, 79, 71);
 
         // hood
-        color(0x33);
-        line(60, 57, 79, 48);
+        color(3);
 
-        line(79, 48, 98, 58);
-        //line(79, 47, 98, 57);
-        //line(79, 46, 98, 56);
-        //line(79, 45, 98, 55);
-        //line(79, 44, 98, 54);
+        hline(73, 42, 12);
+        hline(72, 43, 16);
+        hline(70, 44, 20);
+        hline(68, 45, 24);
+        hline(67, 46, 26);
+        hline(66, 47, 28);
+        hline(65, 48, 30);
+        hline(64, 49, 32);
+        hline(63, 50, 12);
+        hline(62, 51, 10);
+        hline(62, 52, 8);
+        hline(62, 53, 6);
+        hline(62, 54, 4);
+        hline(62, 55, 2);
 
-        hline(75, 42, 9);
+        hline(82, 50, 15);
+        hline(84, 51, 14);
 
-        line(72, 43, 86, 43);
-        line(67, 44, 92, 44);
-        line(63, 45, 95, 45);
-        line(62, 46, 96, 46);
-        line(62, 47, 96, 47);
-        line(61, 48, 97, 48);
+        hline(86, 52, 12);
+        hline(93, 53, 6);
+        hline(95, 54, 4);
+        hline(97, 55, 2);
 
-        color(0x33);
-        oval(65, 58, 12, 14);
-        oval(82, 58, 13, 14); // left eye
-        rect(64, 98, 34, 48); // stomach square
-        vline(98, 98, 20); // sleeve
-        vline(99, 99, 20); // sleeve
-        vline(100, 100, 20); // sleeve
-        vline(101, 101, 19); // sleeve
-        vline(102, 101, 19); // sleeve
-        vline(103, 102, 19); // sleeve
+        // left side
+        vline(62, 51, 8);
+        vline(62, 65, 4);
+        vline(61, 53, 14);
+        vline(60, 56, 8);
 
-        vline(98, 128, 10); // hem
-        vline(99, 130, 10); // hem
-        vline(100, 132, 10); // hem
-        vline(101, 134, 10); // hem
-
-        oval(57, 133, 49, 17); // bottom of cloak
-
-        color(0x11);
-        rect(65, 56, 29, 5); // cut top eyes
+        // right side
+        vline(99, 56, 8);
+        vline(98, 64, 3);
+        vline(98, 53, 6);
     }
 
     fn scythe(_: Over) void {
@@ -347,7 +409,17 @@ const Over = struct {
         hline(53, 27, 70);
         hline(52, 28, 26);
 
-        hline(84, 28, 39);
+        hline(78, 28, 44); // blade right
+        hline(91, 29, 31); // blade right
+        hline(96, 30, 25); // blade right
+        hline(98, 31, 23); // blade right
+        hline(101, 32, 20); // blade right
+        hline(104, 33, 17); // blade right
+        hline(106, 34, 15); // blade right
+
+        hline(109, 35, 11); // blade right
+        hline(110, 36, 10); // blade right
+        hline(110, 37, 10); // blade right
 
         hline(51, 29, 20);
         hline(50, 30, 18);
@@ -401,16 +473,16 @@ const Over = struct {
 
         // handle
         color(4);
-        line(105, 140, 114, 39);
-        line(110, 36, 101, 141);
+        line(110, 37, 102, 133);
+        line(105, 139, 114, 38);
     }
 
     fn hand(_: Over) void {
         color(0x31);
-        oval(103, 106, 8, 5);
-        oval(103, 104, 9, 5);
-        oval(105, 101, 9, 5);
-        oval(100, 102, 5, 9); // thumb
+        oval(103, 106, 8, 6);
+        oval(103, 104, 10, 5);
+        oval(103, 100, 9, 5);
+        oval(100, 100, 5, 9); // thumb
     }
 };
 
