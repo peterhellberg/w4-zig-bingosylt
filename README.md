@@ -2,6 +2,8 @@
 
 A game written in Zig for the [WASM-4](https://wasm4.org) fantasy console.
 
+![death](https://i.imgur.com/Cnmbjks.png)
+
 ## Jam
 
 Kodsnacks Tvåveckorssylt - #9
