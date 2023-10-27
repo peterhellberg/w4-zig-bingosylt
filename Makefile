@@ -1,13 +1,13 @@
 all:
 	zig build -Doptimize=ReleaseSmall
 
-.PHONY: watch
-watch:
-	w4 watch
+.PHONY: spy
+spy:
+	spy --inc src -q clear-zig build -Doptimize=ReleaseSmall
 
 .PHONY: run
 run:
-	w4 run zig-out/lib/cart.wasm
+	w4 run --no-open --no-qr zig-out/lib/cart.wasm
 
 .PHONY: clean
 clean:
