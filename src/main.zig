@@ -1,14 +1,10 @@
 const std = @import("std");
+const fmt = std.fmt;
 
-// A fixed buffer allocator, used in calls to allocPrint
-var buffer: [2048]u8 = undefined;
-
-// A fixed buffer allocator using the buffer
-var fba = std.heap.FixedBufferAllocator.init(&buffer);
-
-// Create the allocator
+// 640 ought to be enough for anybody.
+var memory: [640]u8 = undefined;
+var fba = std.heap.FixedBufferAllocator.init(&memory);
 const a = fba.allocator();
-const allocPrint = std.fmt.allocPrint;
 
 const w4 = @import("wasm4.zig");
 
@@ -16,7 +12,7 @@ const w4 = @import("wasm4.zig");
 var s = State{};
 
 const State = struct {
-    si: u2 = 0, // Scene index
+    si: u2 = 2, // Scene index, default to the game over screen
     x: i32 = 0, // Mouse X
     y: i32 = 0, // Mouse Y
     lf: u8 = 0, // Pressed last frame
@@ -27,7 +23,7 @@ const State = struct {
     frame: i32 = 0,
 
     // The input device (gamepad or mouse)
-    p: *const u8 = w4.MOUSE_BUTTONS,
+    mouse: *const u8 = w4.MOUSE_BUTTONS,
 
     // Linear congruential generator...
     // for some cheap pseudo randomness
@@ -82,10 +78,15 @@ const State = struct {
     }
 
     fn update(self: *State) !void {
-        // Update what was pressed on the gamepad
-        self.tf = self.p.* & (self.p.* ^ self.lf);
-        self.lf = self.p.*;
+        // Update mouse press on this and last frame
+        self.tf = self.mouse.* & (self.mouse.* ^ self.lf);
+        self.lf = self.mouse.*;
 
+        // Update mouse position
+        self.x = @intCast(w4.MOUSE_X.*);
+        self.y = @intCast(w4.MOUSE_Y.*);
+
+        // Increment the frame counter
         self.frame += 1;
 
         // Update the scene specific state
@@ -104,10 +105,6 @@ const State = struct {
     fn scene(self: *State, sceneIndex: u2) void {
         self.si = sceneIndex;
         self.save();
-    }
-
-    fn reset(self: *State) void {
-        _ = self;
     }
 
     fn save(self: *State) void {
@@ -149,7 +146,10 @@ const Intro = struct {
 
         title("INTRO", 8, 6, GRAY, TANGERINE);
 
-        const string = try allocPrint(a, "FRAME: {d}", .{s.frame});
+        const string = try fmt.allocPrint(a,
+            \\FRAME: {d}
+            \\MOUSE: [{d}][{d}]
+        , .{ s.frame, s.x, s.y });
         defer a.free(string);
 
         title(string, 20, 20, GRAY, TANGERINE);
@@ -319,7 +319,6 @@ const Over = struct {
                 pixel(p.x - 1, p.y - 1);
 
                 color(WHITE);
-
                 pixel(p.x + 1, p.y - 1);
                 if (@mod(i, 4) == 0) {
                     pixel(p.x + 1, p.y + 1);
@@ -342,18 +341,6 @@ const Over = struct {
         // }
     }
 };
-
-fn intToString(int: u32, buf: []u8) []const u8 {
-    const st: anyerror![]const u8 = undefined;
-
-    if (st) |value| {
-        _ = value;
-        try std.fmt.bufPrint(buf, "{}", .{int});
-    } else |err| {
-        _ = err;
-        unreachable;
-    }
-}
 
 fn every(f: i32) bool {
     return @mod(s.frame, f) == 0;
