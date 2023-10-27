@@ -25,7 +25,7 @@ Skriva gärna på ditt spel vilka brickor du valde!
 Build the cart by running:
 
 ```shell
-make build
+make
 ```
 
 Then run it with:
@@ -34,11 +34,15 @@ Then run it with:
 make run
 ```
 
-For more info about setting up WASM-4, see the [quickstart guide](https://wasm4.org/docs/getting-started/setup?code-lang=zig#quickstart).
+Bundle for html, linux and windows using:
+
+```shell
+make bundle
+```
 
 ## Links
 
-- [Documentation](https://wasm4.org/docs): Learn more about WASM-4.
-- [Snake Tutorial](https://wasm4.org/docs/tutorials/snake/goal): Learn how to build a complete game
-  with a step-by-step tutorial.
-- [GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
+- [Lospec Pixel Art Scaler](https://lospec.com/pixel-art-scaler/): This tools helps you scale pixel :art: to bigger sizes without filtering
+- [Lospec Tangerine Noir Palette](https://lospec.com/palette-list/tangerine-noir): Three shades with a sharp :tangerine: accent
+- [WASM-4 Documentation](https://wasm4.org/docs): Learn more about WASM-4. :video_game:
+- [WASM-4 GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
