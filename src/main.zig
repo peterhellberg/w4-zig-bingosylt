@@ -1,9 +1,5 @@
 const w4 = @import("wasm4.zig");
 
-var intro = Intro{};
-var game = Game{};
-var over = Over{};
-
 // Global state
 var s = State{};
 
@@ -14,7 +10,7 @@ const State = struct {
     lf: u8 = 0, // Pressed last frame
     tf: u8 = 0, // Pressed this frame
 
-    life: i8 = 3, // Life
+    life: i8 = 10, // Life
     score: u8 = 0, // Some sort of game score
     frame: i32 = 0,
 
@@ -45,8 +41,6 @@ const State = struct {
         .{ .over = Over{} },
     },
 
-    deathFlipped: bool = false,
-
     fn start(_: *State) void {
         trace(
             \\ ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
@@ -67,8 +61,8 @@ const State = struct {
         s.si = si;
 
         // Random positions for the snow particles
-        for (0.., snowParticles) |i, _| {
-            snowParticles[i] = Particle{
+        for (0.., s.scenes[2].over.snowParticles) |i, _| {
+            s.scenes[2].over.snowParticles[i] = Particle{
                 .x = intn(160),
                 .y = intn(160),
             };
@@ -101,7 +95,7 @@ const State = struct {
     }
 
     fn reset(self: *State) void {
-        self.life = 1;
+        self.life = 10;
     }
 
     fn save(self: *State) void {
@@ -115,21 +109,21 @@ const Scene = union(enum) {
     game: Game,
     over: Over,
 
-    fn update(self: Scene) void {
-        switch (self) {
-            inline else => |scene| return scene.update(),
+    fn update(self: *Scene) void {
+        switch (self.*) {
+            inline else => |*scene| scene.update(),
         }
     }
 
-    fn draw(self: Scene) void {
-        switch (self) {
-            inline else => |scene| return scene.draw(),
+    fn draw(self: *Scene) void {
+        switch (self.*) {
+            inline else => |*scene| scene.draw(),
         }
     }
 };
 
 const Intro = struct {
-    fn update(_: Intro) void {
+    fn update(_: *Intro) void {
         if (s.btn()) {
             s.reset();
             beep.play(1);
@@ -137,7 +131,7 @@ const Intro = struct {
         }
     }
 
-    fn draw(_: Intro) void {
+    fn draw(_: *Intro) void {
         clear(4);
 
         color(0x32);
@@ -150,7 +144,7 @@ const Intro = struct {
 };
 
 const Game = struct {
-    fn update(_: Game) void {
+    fn update(_: *Game) void {
         if (s.btn()) {
             s.life -= 1;
             s.score += 1;
@@ -164,7 +158,7 @@ const Game = struct {
         }
     }
 
-    fn draw(_: Game) void {
+    fn draw(_: *Game) void {
         clear(3);
 
         color(0x31);
@@ -181,11 +175,17 @@ const Game = struct {
 
 const Over = struct {
     deathFlipped: bool = false,
+    snowParticles: [100]Particle = [_]Particle{.{}} ** 100,
 
-    fn update(_: Over) void {
-        // if (s.btn()) {
-        //     s.scene(INTRO);
-        // }
+    fn update(self: *Over) void {
+        self.handleInput();
+        self.updateSnow();
+    }
+
+    fn handleInput(_: *Over) void {
+        if (s.btn()) {
+            s.scene(INTRO);
+        }
 
         if (s.tf & w4.MOUSE_LEFT != 0) {
             beep.play(0);
@@ -216,26 +216,58 @@ const Over = struct {
         }
     }
 
-    fn draw(_: Over) void {
+    fn updateSnow(self: *Over) void {
+        for (0.., self.snowParticles) |i, p| {
+            self.snowParticles[i] = Particle{
+                .x = @mod(p.x + intn(4), 160),
+                .y = @mod(p.y + intn(3), 160),
+            };
+        }
+    }
+
+    fn draw(self: *Over) void {
         clear(2);
 
         color(0x4321);
 
         var flags = death.flags;
 
-        if (s.deathFlipped) {
+        if (self.deathFlipped) {
             flags |= w4.BLIT_FLIP_X;
         }
 
         if (@mod(s.frame, 120) == 0) {
-            s.deathFlipped = true;
+            self.deathFlipped = !self.deathFlipped;
         }
 
         image(death, 40, 15, flags);
 
-        snow();
+        self.snow();
 
         title("The game is over!!", 8, 3, TANGERINE, WHITE);
+    }
+
+    fn snow(self: *Over) void {
+        for (self.snowParticles) |p| {
+            color(GRAY);
+            pixel(p.x - 1, p.y - 1);
+
+            color(WHITE);
+            pixel(p.x + 1, p.y - 1);
+            pixel(p.x + 1, p.y + 1);
+            pixel(p.x - 1, p.y + 1);
+            pixel(p.x, p.y);
+        }
+
+        // for (0..20) |i| {
+        //     const y: i32 = @intCast(i * 16);
+        //     _ = y;
+
+        //     for (0..20) |j| {
+        //         const x: i32 = @intCast(j * 16);
+        //         _ = x;
+        //     }
+        // }
     }
 };
 
@@ -243,42 +275,6 @@ const Particle = struct {
     x: i32 = 0,
     y: i32 = 0,
 };
-
-pub var snowParticles = [_]Particle{.{}} ** 400;
-
-fn snow() void {
-    for (0.., snowParticles) |i, p| {
-        const n = Particle{
-            .x = @mod(p.x + intn(3), 160),
-            .y = @mod(p.y + intn(3), 160),
-        };
-
-        snowParticles[i] = n;
-
-        w4.tracef("%d", n.x);
-
-        color(WHITE);
-        pixel(n.x, n.y);
-    }
-
-    for (0..20) |i| {
-        const y: i32 = @intCast(i * 16);
-        _ = y;
-
-        for (0..20) |j| {
-            const x: i32 = @intCast(j * 16);
-            _ = x;
-            // const n: i32 = @intCast(s.random.intn(60));
-
-            // color(WHITE);
-            // pixel(n + o + x + 5, n + o + y + 5);
-            // color(WHITE);
-            // pixel(n + o + x + 4, n + o + y + 4);
-            // color(GRAY);
-            // pixel(n + o + x + 3, n + o + y + 3);
-        }
-    }
-}
 
 // Tone that can play itself
 const Tone = struct {
@@ -400,27 +396,18 @@ fn pixel(x: i32, y: i32) void {
 
     const ux: usize = @intCast(x);
     const uy: usize = @intCast(y);
-
-    // The byte index into the framebuffer that contains (x, y)
     const idx: usize = (uy * 160 + ux) >> 2;
-
     const sx: u3 = @intCast(x);
-
-    // Calculate the bits within the byte that corresponds to our position
     const shift = (sx & 0b11) * 2;
     const mask = @as(u8, 0b11) << shift;
-
-    // Use the first DRAW_COLOR as the pixel color
     const palette_color: u8 = @intCast(w4.DRAW_COLORS.* & 0b1111);
 
     if (palette_color == 0) {
-        // Transparent        '
         return;
     }
 
     const c = (palette_color - 1) & 0b11;
 
-    // Write to the framebuffer
     w4.FRAMEBUFFER[idx] = (c << shift) | (w4.FRAMEBUFFER[idx] & ~mask);
 }
 
