@@ -42,7 +42,7 @@ make bundle
 
 ## Links
 
-- [Lospec Pixel Art Scaler](https://lospec.com/pixel-art-scaler/): This tools helps you scale pixel :art: to bigger sizes without filtering
-- [Lospec Tangerine Noir Palette](https://lospec.com/palette-list/tangerine-noir): Three shades with a sharp :tangerine: accent
-- [WASM-4 Documentation](https://wasm4.org/docs): Learn more about WASM-4. :video_game:
-- [WASM-4 GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
+- :art: [Lospec Pixel Art Scaler](https://lospec.com/pixel-art-scaler/): This tools helps you scale pixel art to bigger sizes without filtering
+- :tangerine: [Lospec Tangerine Noir Palette](https://lospec.com/palette-list/tangerine-noir): Three shades with a sharp tangerine accent
+- :video_game: [WASM-4 Documentation](https://wasm4.org/docs): Learn more about WASM-4.
+- :octocat: [WASM-4 GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
