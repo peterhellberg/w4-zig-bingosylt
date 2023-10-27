@@ -10,7 +10,7 @@ const State = struct {
     lf: u8 = 0, // Pressed last frame
     tf: u8 = 0, // Pressed this frame
 
-    life: i8 = 10, // Life
+    life: i8 = 3, // Life
     score: u8 = 0, // Some sort of game score
     frame: i32 = 0,
 
@@ -74,10 +74,10 @@ const State = struct {
         self.tf = self.p.* & (self.p.* ^ self.lf);
         self.lf = self.p.*;
 
-        s.frame += 1;
+        self.frame += 1;
 
         // Update the scene specific state
-        self.scenes[s.si].update();
+        self.scenes[self.si].update();
     }
 
     fn draw(self: *State) void {
@@ -95,7 +95,7 @@ const State = struct {
     }
 
     fn reset(self: *State) void {
-        self.life = 10;
+        _ = self;
     }
 
     fn save(self: *State) void {
@@ -127,17 +127,20 @@ const Intro = struct {
 
     fn update(_: *Intro) void {
         if (s.btn()) {
-            s.reset();
-            beep.play(1);
+            s.scenes[GAME].game.reset();
             s.scene(GAME);
         }
     }
 
-    fn draw(_: *Intro) void {
+    fn draw(i: *Intro) void {
         clear(BLACK);
 
         title("INTRO", 8, 6, GRAY, TANGERINE);
 
+        i.bottom();
+    }
+
+    fn bottom(_: *Intro) void {
         color(0x4332);
 
         image(death, -30, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
@@ -150,7 +153,39 @@ const Intro = struct {
 };
 
 const Game = struct {
-    fn update(_: *Game) void {
+    startup: Tone = Tone{
+        .freq1 = 240,
+        .freq2 = 680,
+        .attack = 0,
+        .decay = 35,
+        .sustain = 51,
+        .release = 117,
+        .peak = 26,
+        .volume = 6,
+        .mode = 0,
+    },
+
+    died: Tone = Tone{
+        .freq1 = 90,
+        .freq2 = 40,
+        .attack = 10,
+        .decay = 0,
+        .sustain = 15,
+        .release = 25,
+        .peak = 0,
+        .volume = 90,
+        .mode = 1,
+    },
+
+    fn reset(g: *Game) void {
+        s.life = 3;
+
+        g.startup.play(0);
+        g.startup.play(1);
+        g.startup.play(2);
+    }
+
+    fn update(g: *Game) void {
         if (s.btn()) {
             s.life -= 1;
             s.score += 1;
@@ -159,7 +194,7 @@ const Game = struct {
         }
 
         if (s.life == 0) {
-            boop.play(2);
+            g.died.play(2);
             s.scene(OVER);
         }
     }
@@ -196,80 +231,72 @@ const Over = struct {
         .mode = 3,
     },
 
-    fn update(self: *Over) void {
-        self.handleInput();
-        self.updateSnow();
+    fn update(o: *Over) void {
+        o.handleInput();
+        o.updateSnow();
 
-        if (@mod(s.frame, 120) == 0) {
-            self.deathFlipped = !self.deathFlipped;
-        }
-
-        if (@mod(s.frame, 30) == 0) {
-            self.pressFlipped = !self.pressFlipped;
-        }
-
-        if (@mod(s.frame, 400) == 0) {
-            self.sound.play(2);
-        }
+        if (every(120)) o.deathFlipped = !o.deathFlipped;
+        if (every(30)) o.pressFlipped = !o.pressFlipped;
+        if (every(400)) o.sound.play(2);
     }
 
-    fn handleInput(self: *Over) void {
+    fn handleInput(_: *Over) void {
         if (s.btn()) {
             s.scene(INTRO);
         }
 
-        if (s.tf & w4.MOUSE_LEFT != 0) {
-            beep.play(0);
-            beep.play(1);
-            beep.play(2);
-            beep.play(3);
-        }
+        // if (s.tf & w4.MOUSE_LEFT != 0) {
+        //     beep.play(0);
+        //     beep.play(1);
+        //     beep.play(2);
+        //     beep.play(3);
+        // }
 
-        if (s.tf & w4.MOUSE_MIDDLE != 0) {
-            self.sound.play(2);
-        }
+        // if (s.tf & w4.MOUSE_MIDDLE != 0) {
+        //     self.sound.play(2);
+        // }
 
-        if (s.tf & w4.MOUSE_RIGHT != 0) {
-            beep.play(0);
-            //boop.play(1);
-            boop.play(2);
-            //boop.play(3);
-        }
+        // if (s.tf & w4.MOUSE_RIGHT != 0) {
+        //     beep.play(0);
+        //     //boop.play(1);
+        //     boop.play(2);
+        //     //boop.play(3);
+        // }
     }
 
-    fn updateSnow(self: *Over) void {
-        for (0.., self.snowParticles) |i, p| {
-            self.snowParticles[i] = Particle{
+    fn updateSnow(o: *Over) void {
+        for (0.., o.snowParticles) |i, p| {
+            o.snowParticles[i] = Particle{
                 .x = @mod(p.x + intn(4), 160),
                 .y = @mod(p.y + intn(3), 160),
             };
         }
     }
 
-    fn draw(self: *Over) void {
+    fn draw(o: *Over) void {
         clear(GRAY);
 
         color(0x4321);
 
         var flags = death.flags;
 
-        if (self.deathFlipped) {
+        if (o.deathFlipped) {
             flags |= w4.BLIT_FLIP_X;
         }
 
         image(death, 40, 15, flags);
 
-        self.snow();
+        o.snow();
 
         title("The game is over!!", 8, 3, TANGERINE, WHITE);
 
-        const fg: u16 = if (self.pressFlipped) TANGERINE else WHITE;
+        const fg: u16 = if (o.pressFlipped) TANGERINE else WHITE;
 
         title("press key to restart", 0, 143, BLACK, fg);
     }
 
-    fn snow(self: *Over) void {
-        for (0.., self.snowParticles) |i, p| {
+    fn snow(o: *Over) void {
+        for (0.., o.snowParticles) |i, p| {
             if (@mod(i, 5) == 0) {
                 color(GRAY);
                 pixel(p.x - 1, p.y - 1);
@@ -299,6 +326,10 @@ const Over = struct {
     }
 };
 
+fn every(f: i32) bool {
+    return @mod(s.frame, f) == 0;
+}
+
 const Particle = struct {
     x: i32 = 0,
     y: i32 = 0,
@@ -317,11 +348,11 @@ const Tone = struct {
     mode: u32 = 0,
     pan: u32 = 0,
 
-    fn play(self: Tone, channel: u32) void {
-        const frequency = self.freq1 | (self.freq2 << 16);
-        const duration = (self.attack << 24) | (self.decay << 16) | self.sustain | (self.release << 8);
-        const volume = (self.peak << 8) | self.volume;
-        const flags = channel | (self.mode << 2) | (self.pan << 4);
+    fn play(t: Tone, channel: u32) void {
+        const frequency = t.freq1 | (t.freq2 << 16);
+        const duration = (t.attack << 24) | (t.decay << 16) | t.sustain | (t.release << 8);
+        const volume = (t.peak << 8) | t.volume;
+        const flags = channel | (t.mode << 2) | (t.pan << 4);
 
         w4.tone(
             frequency,
@@ -330,30 +361,6 @@ const Tone = struct {
             flags,
         );
     }
-};
-
-var beep = Tone{
-    .freq1 = 240,
-    .freq2 = 680,
-    .attack = 0,
-    .decay = 35,
-    .sustain = 51,
-    .release = 117,
-    .peak = 26,
-    .volume = 6,
-    .mode = 0,
-};
-
-var boop = Tone{
-    .freq1 = 90,
-    .freq2 = 40,
-    .attack = 10,
-    .decay = 0,
-    .sustain = 15,
-    .release = 25,
-    .peak = 0,
-    .volume = 90,
-    .mode = 1,
 };
 
 // The colors
@@ -470,14 +477,14 @@ const LCG = struct {
     seed: u32,
     r: u32 = 0,
 
-    fn next(self: *LCG) u32 {
-        self.r = (self.a * self.r + self.c) % self.m;
+    fn next(lcg: *LCG) u32 {
+        lcg.r = (lcg.a * lcg.r + lcg.c) % lcg.m;
 
-        return self.r;
+        return lcg.r;
     }
 
-    fn intn(self: *LCG, n: u32) u32 {
-        return self.next() % n;
+    fn intn(lcg: *LCG, n: u32) u32 {
+        return lcg.next() % n;
     }
 };
 
