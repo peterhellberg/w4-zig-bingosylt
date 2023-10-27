@@ -123,6 +123,8 @@ const Scene = union(enum) {
 };
 
 const Intro = struct {
+    snowParticles: [200]Particle = [_]Particle{.{}} ** 200,
+
     fn update(_: *Intro) void {
         if (s.btn()) {
             s.reset();
@@ -132,14 +134,18 @@ const Intro = struct {
     }
 
     fn draw(_: *Intro) void {
-        clear(4);
+        clear(BLACK);
 
-        color(0x32);
+        title("INTRO", 8, 6, GRAY, TANGERINE);
 
-        text("INTRO", 8, 6);
+        color(0x4332);
 
-        color(0x4321);
-        image(death, 16, 16, death.flags);
+        image(death, -30, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
+        image(death, 0, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
+        image(death, 30, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
+        image(death, 60, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
+        image(death, 90, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
+        image(death, 120, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
     }
 };
 
@@ -159,7 +165,7 @@ const Game = struct {
     }
 
     fn draw(_: *Game) void {
-        clear(3);
+        clear(BLACK);
 
         color(0x31);
         text("GAME", 8, 6);
@@ -175,14 +181,39 @@ const Game = struct {
 
 const Over = struct {
     deathFlipped: bool = false,
-    snowParticles: [100]Particle = [_]Particle{.{}} ** 100,
+    pressFlipped: bool = false,
+
+    snowParticles: [200]Particle = [_]Particle{.{}} ** 200,
+    sound: Tone = Tone{
+        .freq1 = 50,
+        .freq2 = 40,
+        .attack = 25,
+        .decay = 168,
+        .sustain = 0,
+        .release = 25,
+        .peak = 0,
+        .volume = 2,
+        .mode = 3,
+    },
 
     fn update(self: *Over) void {
         self.handleInput();
         self.updateSnow();
+
+        if (@mod(s.frame, 120) == 0) {
+            self.deathFlipped = !self.deathFlipped;
+        }
+
+        if (@mod(s.frame, 30) == 0) {
+            self.pressFlipped = !self.pressFlipped;
+        }
+
+        if (@mod(s.frame, 400) == 0) {
+            self.sound.play(2);
+        }
     }
 
-    fn handleInput(_: *Over) void {
+    fn handleInput(self: *Over) void {
         if (s.btn()) {
             s.scene(INTRO);
         }
@@ -195,17 +226,7 @@ const Over = struct {
         }
 
         if (s.tf & w4.MOUSE_MIDDLE != 0) {
-            (Tone{
-                .freq1 = 50,
-                .freq2 = 40,
-                .attack = 25,
-                .decay = 168,
-                .sustain = 0,
-                .release = 25,
-                .peak = 0,
-                .volume = 20,
-                .mode = 3,
-            }).play(2);
+            self.sound.play(2);
         }
 
         if (s.tf & w4.MOUSE_RIGHT != 0) {
@@ -226,7 +247,7 @@ const Over = struct {
     }
 
     fn draw(self: *Over) void {
-        clear(2);
+        clear(GRAY);
 
         color(0x4321);
 
@@ -236,26 +257,33 @@ const Over = struct {
             flags |= w4.BLIT_FLIP_X;
         }
 
-        if (@mod(s.frame, 120) == 0) {
-            self.deathFlipped = !self.deathFlipped;
-        }
-
         image(death, 40, 15, flags);
 
         self.snow();
 
         title("The game is over!!", 8, 3, TANGERINE, WHITE);
+
+        const fg: u16 = if (self.pressFlipped) TANGERINE else WHITE;
+
+        title("press key to restart", 0, 143, BLACK, fg);
     }
 
     fn snow(self: *Over) void {
-        for (self.snowParticles) |p| {
-            color(GRAY);
-            pixel(p.x - 1, p.y - 1);
+        for (0.., self.snowParticles) |i, p| {
+            if (@mod(i, 5) == 0) {
+                color(GRAY);
+                pixel(p.x - 1, p.y - 1);
+
+                color(WHITE);
+
+                pixel(p.x + 1, p.y - 1);
+                if (@mod(i, 4) == 0) {
+                    pixel(p.x + 1, p.y + 1);
+                    pixel(p.x - 1, p.y + 1);
+                }
+            }
 
             color(WHITE);
-            pixel(p.x + 1, p.y - 1);
-            pixel(p.x + 1, p.y + 1);
-            pixel(p.x - 1, p.y + 1);
             pixel(p.x, p.y);
         }
 
