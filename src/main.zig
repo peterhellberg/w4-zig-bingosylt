@@ -1,3 +1,15 @@
+const std = @import("std");
+
+// A fixed buffer allocator, used in calls to allocPrint
+var buffer: [2048]u8 = undefined;
+
+// A fixed buffer allocator using the buffer
+var fba = std.heap.FixedBufferAllocator.init(&buffer);
+
+// Create the allocator
+const a = fba.allocator();
+const allocPrint = std.fmt.allocPrint;
+
 const w4 = @import("wasm4.zig");
 
 // Global state
@@ -69,7 +81,7 @@ const State = struct {
         }
     }
 
-    fn update(self: *State) void {
+    fn update(self: *State) !void {
         // Update what was pressed on the gamepad
         self.tf = self.p.* & (self.p.* ^ self.lf);
         self.lf = self.p.*;
@@ -77,16 +89,16 @@ const State = struct {
         self.frame += 1;
 
         // Update the scene specific state
-        self.scenes[self.si].update();
+        try self.scenes[self.si].update();
     }
 
-    fn draw(self: *State) void {
+    fn draw(self: *State) !void {
         // Draw the scene
-        self.scenes[s.si].draw();
+        try self.scenes[s.si].draw();
     }
 
     fn btn(self: *State) bool {
-        return self.tf & w4.MOUSE_LEFT != 0;
+        return self.tf & w4.MOUSE_RIGHT != 0;
     }
 
     fn scene(self: *State, sceneIndex: u2) void {
@@ -109,15 +121,15 @@ const Scene = union(enum) {
     game: Game,
     over: Over,
 
-    fn update(self: *Scene) void {
+    fn update(self: *Scene) !void {
         switch (self.*) {
-            inline else => |*scene| scene.update(),
+            inline else => |*scene| try scene.update(),
         }
     }
 
-    fn draw(self: *Scene) void {
+    fn draw(self: *Scene) !void {
         switch (self.*) {
-            inline else => |*scene| scene.draw(),
+            inline else => |*scene| try scene.draw(),
         }
     }
 };
@@ -125,17 +137,22 @@ const Scene = union(enum) {
 const Intro = struct {
     snowParticles: [200]Particle = [_]Particle{.{}} ** 200,
 
-    fn update(_: *Intro) void {
+    fn update(_: *Intro) !void {
         if (s.btn()) {
             s.scenes[GAME].game.reset();
             s.scene(GAME);
         }
     }
 
-    fn draw(i: *Intro) void {
+    fn draw(i: *Intro) !void {
         clear(BLACK);
 
         title("INTRO", 8, 6, GRAY, TANGERINE);
+
+        const string = try allocPrint(a, "FRAME: {d}", .{s.frame});
+        defer a.free(string);
+
+        title(string, 20, 20, GRAY, TANGERINE);
 
         i.bottom();
     }
@@ -185,7 +202,7 @@ const Game = struct {
         g.startup.play(2);
     }
 
-    fn update(g: *Game) void {
+    fn update(g: *Game) !void {
         if (s.btn()) {
             s.life -= 1;
             s.score += 1;
@@ -199,7 +216,7 @@ const Game = struct {
         }
     }
 
-    fn draw(_: *Game) void {
+    fn draw(_: *Game) !void {
         clear(BLACK);
 
         color(0x31);
@@ -231,7 +248,7 @@ const Over = struct {
         .mode = 3,
     },
 
-    fn update(o: *Over) void {
+    fn update(o: *Over) !void {
         o.handleInput();
         o.updateSnow();
 
@@ -273,7 +290,7 @@ const Over = struct {
         }
     }
 
-    fn draw(o: *Over) void {
+    fn draw(o: *Over) !void {
         clear(GRAY);
 
         color(0x4321);
@@ -292,7 +309,7 @@ const Over = struct {
 
         const fg: u16 = if (o.pressFlipped) TANGERINE else WHITE;
 
-        title("press key to restart", 0, 143, BLACK, fg);
+        title("Press key to restart", 0, 143, BLACK, fg);
     }
 
     fn snow(o: *Over) void {
@@ -325,6 +342,18 @@ const Over = struct {
         // }
     }
 };
+
+fn intToString(int: u32, buf: []u8) []const u8 {
+    const st: anyerror![]const u8 = undefined;
+
+    if (st) |value| {
+        _ = value;
+        try std.fmt.bufPrint(buf, "{}", .{int});
+    } else |err| {
+        _ = err;
+        unreachable;
+    }
+}
 
 fn every(f: i32) bool {
     return @mod(s.frame, f) == 0;
@@ -464,10 +493,10 @@ export fn start() void {
 
 export fn update() void {
     // Update the state
-    s.update();
+    s.update() catch unreachable;
 
     // Draw the state
-    s.draw();
+    s.draw() catch unreachable;
 }
 
 const LCG = struct {
