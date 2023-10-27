@@ -2,7 +2,7 @@
 
 A game written in Zig for the [WASM-4](https://wasm4.org) fantasy console.
 
-![death](https://i.imgur.com/Cnmbjks.png)
+![death](https://i.imgur.com/VU2HYxl.png)
 
 ## Jam
 
