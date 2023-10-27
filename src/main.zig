@@ -166,10 +166,10 @@ const Over = struct {
         const y = 3;
 
         color(4);
-        text("The game is over!", x, y);
+        text("The game is over!!", x, y);
 
         color(1);
-        text("The game is over!", x + 1, y + 1);
+        text("The game is over!!", x + 1, y + 1);
 
         self.death();
     }
