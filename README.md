@@ -47,3 +47,4 @@ make bundle
 - :video_game: [WASM-4 Documentation](https://wasm4.org/docs): Learn more about WASM-4
 - :octocat: [WASM-4 GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
 - :sparkles: [Jok](https://github.com/Jack-Ji/jok): A minimal 2d/3d game framework for Zig
+- :fire: [Zig Crash Course](https://ikrima.dev/dev-notes/zig/zig-crash-course/)
