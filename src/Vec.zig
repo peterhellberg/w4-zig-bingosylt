@@ -19,6 +19,14 @@ pub fn y(self: Self) f32 {
     return self.data[1];
 }
 
+pub fn X(self: Self) i32 {
+    return @intFromFloat(self.x());
+}
+
+pub fn Y(self: Self) i32 {
+    return @intFromFloat(self.y());
+}
+
 /// Set all components to the same given value.
 pub fn set(val: f32) Self {
     const result = @as(Vec, @splat(val));
