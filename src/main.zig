@@ -4,9 +4,13 @@ const fmt = std.fmt;
 // 640 ought to be enough for anybody.
 var memory: [640]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&memory);
-const a = fba.allocator();
+const allocator = fba.allocator();
 
+// const zm = @import("zmath");
 const w4 = @import("wasm4.zig");
+
+const Vec = @import("Vec.zig");
+const V = Vec.new;
 
 // Global state
 var s = State{};
@@ -23,7 +27,8 @@ const State = struct {
     frame: i32 = 0,
 
     // The input device (gamepad or mouse)
-    mouse: *const u8 = w4.MOUSE_BUTTONS,
+    input: *const u8 = w4.MOUSE_BUTTONS,
+    m: Vec = Vec.zero(),
 
     // Linear congruential generator...
     // for some cheap pseudo randomness
@@ -79,12 +84,14 @@ const State = struct {
 
     fn update(self: *State) !void {
         // Update mouse press on this and last frame
-        self.tf = self.mouse.* & (self.mouse.* ^ self.lf);
-        self.lf = self.mouse.*;
+        self.tf = self.input.* & (self.input.* ^ self.lf);
+        self.lf = self.input.*;
 
         // Update mouse position
         self.x = @intCast(w4.MOUSE_X.*);
         self.y = @intCast(w4.MOUSE_Y.*);
+
+        self.m = V(@floatFromInt(self.x), @floatFromInt(self.y));
 
         // Increment the frame counter
         self.frame += 1;
@@ -146,11 +153,17 @@ const Intro = struct {
 
         title("INTRO", 8, 6, GRAY, TANGERINE);
 
-        const string = try fmt.allocPrint(a,
+        var center = V(80, 80);
+        var d: i32 = @intFromFloat(s.m.distance(center));
+
+        const string = try fmt.allocPrint(allocator,
             \\FRAME: {d}
             \\MOUSE: [{d}][{d}]
-        , .{ s.frame, s.x, s.y });
-        defer a.free(string);
+            \\DEBUG: {any}
+        , .{ s.frame, s.x, s.y, d });
+        defer allocator.free(string);
+
+        trace(string);
 
         title(string, 20, 20, GRAY, TANGERINE);
 
