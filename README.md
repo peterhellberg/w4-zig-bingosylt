@@ -1,4 +1,4 @@
-# w4-zig-bingosylt
+# w4-zig-bingosylt :zap:
 
 A game written in Zig for the [WASM-4](https://wasm4.org) fantasy console.
 
@@ -46,3 +46,4 @@ make bundle
 - :tangerine: [Lospec Tangerine Noir Palette](https://lospec.com/palette-list/tangerine-noir): Three shades with a sharp tangerine accent
 - :video_game: [WASM-4 Documentation](https://wasm4.org/docs): Learn more about WASM-4.
 - :octocat: [WASM-4 GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
+- :sparkles: [Jok](https://github.com/Jack-Ji/jok): A minimal 2d/3d game framework for Zig.
