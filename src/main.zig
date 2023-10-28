@@ -6,6 +6,9 @@ var memory: [640]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&memory);
 const allocator = fba.allocator();
 
+// Random number generator
+var rnd = std.rand.DefaultPrng.init(0);
+
 // 2D Vector implementation
 const Vec = @import("Vec.zig");
 const V = Vec.new;
@@ -35,24 +38,6 @@ const State = struct {
     input: *const u8 = w4.MOUSE_BUTTONS,
     m: Vec = Vec.zero(),
 
-    // Linear congruential generator...
-    // for some cheap pseudo randomness
-    lcg: LCG = .{
-        .a = 1103515245,
-        .c = 12345,
-        .m = 1 << 31,
-        .seed = 478194673,
-    },
-
-    // Tangerine Noir
-    // https://lospec.com/palette-list/tangerine-noir
-    palette: [4]u32 = .{
-        0xfcfcfc, // White
-        0x393541, // Gray
-        0x191a1f, // Black
-        0xee964b, // Tangerine
-    },
-
     scenes: [3]Scene = .{
         .{ .intro = Intro{} },
         .{ .game = Game{} },
@@ -68,14 +53,17 @@ const State = struct {
             \\
         );
 
-        w4.PALETTE.* = s.palette;
+        // Transition to the scene loaded from disk
+        // defaulting to the OVER scene
+        s.transition(s.load(OVER));
+    }
 
-        var si: u2 = undefined;
+    fn load(_: *State, default: u2) u2 {
+        var si: u2 = default;
 
         _ = w4.diskr(@ptrCast(&si), @sizeOf(@TypeOf(si)));
 
-        // Transition to the scene loaded
-        s.transition(si);
+        return si;
     }
 
     fn update(self: *State) !void {
@@ -101,8 +89,12 @@ const State = struct {
         try self.scenes[s.si].draw();
     }
 
-    fn btn(self: *State) bool {
+    fn rbtn(self: *State) bool {
         return self.tf & w4.MOUSE_RIGHT != 0;
+    }
+
+    fn mbtn(self: *State) bool {
+        return self.tf & w4.MOUSE_MIDDLE != 0;
     }
 
     fn transition(self: *State, sceneIndex: u2) void {
@@ -116,7 +108,9 @@ const State = struct {
 
     fn save(self: *State) void {
         // Save the scene index to disk
-        _ = w4.diskw(@ptrCast(&self.si), @sizeOf(@TypeOf(self.si)));
+        var wrote = w4.diskw(@ptrCast(&self.si), @sizeOf(@TypeOf(self.si)));
+
+        w4.tracef("WROTE %d", wrote);
     }
 };
 
@@ -145,60 +139,115 @@ const Scene = union(enum) {
 };
 
 const Intro = struct {
-    fn enter(_: *Intro) !void {}
+    debugEnabled: bool = true,
 
-    fn update(_: *Intro) !void {
-        if (s.btn()) {
+    // Tangerine Noir
+    // https://lospec.com/palette-list/tangerine-noir
+    tangerineNoir: [4]u32 = .{
+        0xfcfcfc, // White
+        0x393541, // Gray
+        0x191a1f, // Black
+        0xee964b, // Tangerine
+    },
+
+    // Repeating version of Dream Haze 8
+    // https://lospec.com/palette-list/dream-haze-8
+    repeating: [15]u32 = .{
+        0x3c42c4,
+        0x6e51c8,
+        0xa065cd,
+        0xce79d2,
+        0xd68fb8,
+        0xdda2a3,
+        0xeac4ae,
+        0xf4dfbe,
+        0xf4dfbe,
+        0xeac4ae,
+        0xdda2a3,
+        0xd68fb8,
+        0xce79d2,
+        0xa065cd,
+        0x6e51c8,
+    },
+
+    fn enter(i: *Intro) !void {
+        w4.PALETTE.* = i.tangerineNoir;
+    }
+
+    fn update(i: *Intro) !void {
+        if (s.rbtn()) {
             s.transition(GAME);
         }
+
+        if (s.mbtn()) {
+            i.debugEnabled = !i.debugEnabled;
+        }
+
+        w4.PALETTE.*[3] = i.repeating[
+            @mod(
+                @divFloor(s.frame, 8),
+                i.repeating.len,
+            )
+        ];
     }
 
     fn draw(i: *Intro) !void {
-        clear(BLACK);
-        i.bottom();
-
-        color(GRAY);
-        line(0, 0, s.x, s.y);
-        line(0, 159, s.x, s.y);
-        line(159, 0, s.x, s.y);
-        line(159, 159, s.x, s.y);
-
         var center = V(80, 80);
-
         var d: i32 = @intFromFloat(s.m.distance(center));
 
-        i.target(d);
+        clear(BLACK);
 
-        title("INTRO", 8, 6, GRAY, TANGERINE);
+        i.bottom();
+
+        color(BLACK);
+
+        const mv = V(@floatFromInt(s.x), @floatFromInt(s.y));
+        const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
+
+        i.scrollingTitle();
 
         // Gray cat
         color(0x4002);
-        image(cat, 117, 21, cat.flags | w4.BLIT_FLIP_X);
-
-        // White cat
-        color(0x4001);
+        image(cat, 110, 122, cat.flags | w4.BLIT_FLIP_X);
 
         var w: f32 = @floatFromInt(cat.width);
         var h: f32 = @floatFromInt(cat.height);
+        var offset = V(@divFloor(w, 4), @divFloor(h, 2));
 
-        var l = s.m.lerp(center, 0.8).sub(V(@divFloor(w, 4), @divFloor(h, 2)));
+        // White cat
+        var fframe: f32 = @floatFromInt(s.frame);
+        var t: f32 = @abs((@mod(@divFloor(fframe, 4), 20) - 10) / 10);
 
-        img(cat, l, cat.flags);
+        if (i.debugEnabled) {
+            color(0x44);
+            catline(s.m, center, 1, np);
+        }
 
-        dotline(s.m, center, ([_]f32{
-            0.1,
-            0.2,
-            0.3,
-            0.4,
-            0.5,
-            0.6,
-            0.7,
-        })[0..], 3, TANGERINE);
+        color(0x4001);
+        img(cat, s.m.lerp(center, t).sub(offset), cat.flags);
+
+        color(0x23);
+        catline(V(0, 0), mv, 5, np);
+        catline(V(0, 159), mv, 5, np);
+        catline(V(159, 0), mv, 5, np);
+        catline(V(159, 159), mv, 5, np);
 
         try i.debug(.{ s.frame, s.x, s.y, d });
     }
 
-    fn debug(_: *Intro, args: anytype) !void {
+    fn scrollingTitle(_: *Intro) void {
+        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 1), 320));
+
+        title("_  _  _  _  _", 180 + -offset - 13, 34, GRAY, PRIMARY);
+        title("-  -  -  -  -", 180 + -offset - 12, 36, GRAY, PRIMARY);
+        title("I  N  T  R  O", 180 + -offset - 18, 36, GRAY, PRIMARY);
+    }
+
+    fn debug(i: *Intro, args: anytype) !void {
+        if (!i.debugEnabled) {
+            return;
+        }
+
         const str = try fmt.allocPrint(allocator,
             \\FRAME: {d}
             \\MOUSE: [{d}][{d}]
@@ -206,19 +255,8 @@ const Intro = struct {
         , args);
         defer allocator.free(str);
 
-        trace(str);
-        title(str, 20, 20, GRAY, WHITE);
-    }
-
-    fn target(_: *Intro, d: i32) void {
-        color(0x13);
-
-        var w: i32 = @intCast(70 - d);
-        var h: i32 = @intCast(65 - d);
-
-        if (d < 65) {
-            oval(s.x - @divFloor(w, 2), s.y - @divFloor(h, 2), @intCast(w), @intCast(h));
-        }
+        // trace(str);
+        title(str, 20, 120, GRAY, WHITE);
     }
 
     fn bottom(_: *Intro) void {
@@ -234,6 +272,15 @@ const Intro = struct {
 };
 
 const Game = struct {
+    // Tangerine Noir
+    // https://lospec.com/palette-list/tangerine-noir
+    palette: [4]u32 = .{
+        0xfcfcfc, // White
+        0x393541, // Gray
+        0x191a1f, // Black
+        0xee964b, // Tangerine
+    },
+
     startup: Tone = Tone{
         .freq1 = 240,
         .freq2 = 680,
@@ -259,6 +306,8 @@ const Game = struct {
     },
 
     fn enter(g: *Game) !void {
+        w4.PALETTE.* = g.palette;
+
         s.life = 3;
 
         g.startup.play(0);
@@ -267,7 +316,7 @@ const Game = struct {
     }
 
     fn update(g: *Game) !void {
-        if (s.btn()) {
+        if (s.rbtn()) {
             s.life -= 1;
             s.score += 1;
 
@@ -289,18 +338,24 @@ const Game = struct {
         var i: i32 = 0;
 
         while (i <= s.life) : (i += 1) {
+            const fi: f32 = @floatFromInt(i);
+
             color(0x31);
-            rect(10, 30 - i, 10, 10);
+            rect(V(10, 30 - fi), 10, 10);
         }
     }
 };
 
 const Over = struct {
-    deathFlipped: bool = false,
-    pressFlipped: bool = false,
+    // Tangerine Noir
+    // https://lospec.com/palette-list/tangerine-noir
+    palette: [4]u32 = .{
+        0xfcfcfc, // White
+        0x393541, // Gray
+        0x191a1f, // Black
+        0xee964b, // Tangerine
+    },
 
-    snowParticles: [256]Particle = [_]Particle{.{}} ** 256,
-    //snowParticles: [1]Particle = [_]Particle{.{}} ** 1,
     sound: Tone = Tone{
         .freq1 = 50,
         .freq2 = 40,
@@ -313,21 +368,29 @@ const Over = struct {
         .mode = 3,
     },
 
+    snowParticles: [256]Particle = [_]Particle{.{}} ** 256,
+    //snowParticles: [1]Particle = [_]Particle{.{}} ** 1,
+
+    deathFlipped: bool = false,
+    pressFlipped: bool = false,
+
     fn enter(o: *Over) !void {
+        w4.PALETTE.* = o.palette;
+
         // Random positions for the snow particles
         for (0.., o.snowParticles) |i, _| {
             o.snowParticles[i] = P(
-                @floatFromInt(intn(160)),
-                @floatFromInt(intn(160)),
+                rnd.random().float(f32) * 160,
+                rnd.random().float(f32) * 160,
                 @floatFromInt(45),
-                @floatFromInt(5 + intn(15)),
+                5 + rnd.random().float(f32) * 15,
                 10,
             );
         }
     }
 
     fn update(o: *Over) !void {
-        if (s.btn()) {
+        if (s.rbtn()) {
             s.transition(INTRO);
         }
 
@@ -355,11 +418,11 @@ const Over = struct {
 
         o.snow();
 
-        title("The game is over!!", 8, 3, TANGERINE, WHITE);
+        title("The game is over!!", 8, 3, PRIMARY, WHITE);
 
-        const fg: u16 = if (o.pressFlipped) TANGERINE else WHITE;
+        const fg: u16 = if (o.pressFlipped) PRIMARY else WHITE;
 
-        title("Press key to restart", 0, 143, BLACK, fg);
+        title("Press (X) to restart", 0, 145, BLACK, fg);
     }
 
     fn snow(o: *Over) void {
@@ -399,7 +462,7 @@ const Over = struct {
             n.position.data[1] = @mod(n.position.data[1], 165);
 
             if (n.life < 0) {
-                n.life = @floatFromInt(intn(10));
+                n.life = rnd.random().float(f32) * 10;
             }
 
             o.snowParticles[i] = n;
@@ -443,7 +506,7 @@ const Tone = struct {
 const WHITE: u16 = 1;
 const GRAY: u16 = 2;
 const BLACK: u16 = 3;
-const TANGERINE: u16 = 4;
+const PRIMARY: u16 = 4;
 
 // The scene indexes
 const INTRO: u2 = 0;
@@ -462,24 +525,21 @@ fn title(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
     text(str, x + 1, y + 1);
 }
 
-fn line(x1: i32, y1: i32, x2: i32, y2: i32) void {
-    w4.line(x1, y1, x2, y2);
+fn line(a: Vec, b: Vec) void {
+    w4.line(
+        @intFromFloat(a.x()),
+        @intFromFloat(a.y()),
+        @intFromFloat(b.x()),
+        @intFromFloat(b.y()),
+    );
 }
 
-fn hline(x: i32, y: i32, len: u32) void {
-    w4.hline(x, y, len);
+fn oval(pos: Vec, width: u32, height: u32) void {
+    w4.oval(@intFromFloat(pos.x()), @intFromFloat(pos.y()), width, height);
 }
 
-fn vline(x: i32, y: i32, len: u32) void {
-    w4.vline(x, y, len);
-}
-
-fn oval(x: i32, y: i32, width: u32, height: u32) void {
-    w4.oval(x, y, width, height);
-}
-
-fn rect(x: i32, y: i32, width: u32, height: u32) void {
-    w4.rect(x, y, width, height);
+fn rect(pos: Vec, width: u32, height: u32) void {
+    w4.rect(@intFromFloat(pos.x()), @intFromFloat(pos.y()), width, height);
 }
 
 fn blit(sprite: [*]const u8, x: i32, y: i32, width: u32, height: u32, flags: u32) void {
@@ -487,11 +547,11 @@ fn blit(sprite: [*]const u8, x: i32, y: i32, width: u32, height: u32, flags: u32
 }
 
 fn image(m: Sprite, x: i32, y: i32, flags: u32) void {
-    w4.blit(m.sprite, x, y, m.width, m.height, flags);
+    blit(m.sprite, x, y, m.width, m.height, flags);
 }
 
 fn img(m: Sprite, v: Vec, flags: u32) void {
-    w4.blit(m.sprite, v.X(), v.Y(), m.width, m.height, flags);
+    blit(m.sprite, v.X(), v.Y(), m.width, m.height, flags);
 }
 
 fn color(c: u16) void {
@@ -534,12 +594,22 @@ fn pixel(x: i32, y: i32) void {
     w4.FRAMEBUFFER[idx] = (c << shift) | (w4.FRAMEBUFFER[idx] & ~mask);
 }
 
-fn dotline(a: Vec, b: Vec, points: []const f32, dotSize: u32, dotColor: u16) void {
-    for (points) |p| {
-        const pos = a.lerp(b, p);
+fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
+    const fsize: f32 = @floatFromInt(dotSize);
+    const offset = Vec.set(@divFloor(fsize, 2));
 
-        color(dotColor);
-        oval(pos.X(), pos.Y(), dotSize, dotSize);
+    for (points) |p| {
+        oval(a.lerp(b, p).sub(offset), dotSize, dotSize);
+    }
+}
+
+fn catline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
+    for (0.., points) |i, p| {
+        const size = dotSize * (points.len - i);
+        const fsize: f32 = @floatFromInt(size);
+        const offset = Vec.set(@divFloor(fsize, 2));
+
+        oval(a.lerp(b, p).sub(offset), size, size);
     }
 }
 
@@ -547,8 +617,20 @@ fn trace(x: []const u8) void {
     w4.trace(x);
 }
 
-fn intn(n: u32) i32 {
-    return @intCast(s.lcg.intn(n));
+fn string(arg: []const u8, x: i32, y: i32, bg: u16, fg: u16) !void {
+    const str = try fmt.allocPrint(allocator, "{s}", .{arg});
+    defer allocator.free(str);
+
+    trace(str);
+    title(str, x, y, bg, fg);
+}
+
+fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
+    const str = try fmt.allocPrint(allocator, "{any}", .{arg});
+    defer allocator.free(str);
+
+    trace(str);
+    title(str, x, y, bg, fg);
 }
 
 //
@@ -566,24 +648,6 @@ export fn update() void {
     // Draw the state
     s.draw() catch unreachable;
 }
-
-const LCG = struct {
-    a: u32,
-    c: u32,
-    m: u32,
-    seed: u32,
-    r: u32 = 0,
-
-    fn next(lcg: *LCG) u32 {
-        lcg.r = (lcg.a * lcg.r + lcg.c) % lcg.m;
-
-        return lcg.r;
-    }
-
-    fn intn(lcg: *LCG, n: u32) u32 {
-        return lcg.next() % n;
-    }
-};
 
 const Sprite = struct {
     sprite: [*]const u8,
