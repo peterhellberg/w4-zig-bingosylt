@@ -204,10 +204,6 @@ const Intro = struct {
     }
 
     fn update(i: *Intro) !void {
-        if (s.button1()) {
-            s.transition(GAME);
-        }
-
         if (s.button2()) {
             i.debugEnabled = !i.debugEnabled;
         }
@@ -218,6 +214,10 @@ const Intro = struct {
                 i.repeating.len,
             )
         ];
+
+        if (s.button1()) {
+            s.transition(GAME);
+        }
     }
 
     fn draw(i: *Intro) !void {
@@ -237,7 +237,7 @@ const Intro = struct {
         var h: f32 = @floatFromInt(cat.height);
         var offset = V(@divFloor(w, 4), @divFloor(h, 2));
         var fframe: f32 = @floatFromInt(s.frame);
-        var t: f32 = @abs((@mod(@divFloor(fframe, 1), 800) - 400) / 400);
+        var t: f32 = @abs(@mod(@divFloor(fframe, 1), 800) - 400 / 400);
         i.catline(V(-10, 60), V(170, 80), 25, np, t, offset);
 
         sizeline(V(30, 30), mv, 30, np, 0x23, 0x43);
@@ -399,6 +399,9 @@ const Game = struct {
             color(0x34);
             rect(V(10, 30 - fi), 10, 10);
         }
+
+        triangle(.{ V(90, 20), V(120, 20), V(120, 40) }, PRIMARY);
+        triangle(.{ V(80, 40), V(120, 40), V(90, 60) }, PRIMARY);
 
         triangle(.{ V(80, 90), V(100, 150), V(10, 150) }, WHITE);
         triangle(.{ V(80, 90), V(155, 150), V(100, 150) }, GRAY);
@@ -708,7 +711,7 @@ fn ppx(p: Particle) void {
 }
 
 fn pixel(x: i32, y: i32) void {
-    if ((x < 0) or (x > 160) or (y < 0) or (y > 160)) {
+    if (x < 0 or x > 160 or y < 0 or y > 160) {
         return;
     }
 
@@ -737,19 +740,51 @@ fn triangle(t: [3]Vec, fg: u16) void {
 
     color(fg);
 
+    const bias0: f32 = if (is_top_left(t[1], t[2])) 0 else -1;
+    const bias1: f32 = if (is_top_left(t[2], t[0])) 0 else -1;
+    const bias2: f32 = if (is_top_left(t[0], t[1])) 0 else -1;
+
+    const area = Vec.cross(t[0], t[1], t[2]);
+
     for (yMin..yMax) |y| {
         for (xMin..xMax) |x| {
             var p = V(@floatFromInt(x), @floatFromInt(y));
 
-            const w0 = p.cross(t[0], t[1]);
-            const w1 = p.cross(t[1], t[2]);
-            const w2 = p.cross(t[2], t[0]);
+            const w0 = p.cross(t[0], t[1]) + bias0;
+            const w1 = p.cross(t[1], t[2]) + bias1;
+            const w2 = p.cross(t[2], t[0]) + bias2;
 
-            if ((w0 > 0) and (w1 > 0) and (w2 > 0)) {
+            const is_inside = (w0 >= 0) and (w1 >= 0) and (w2 >= 0);
+
+            if (is_inside) {
+                const alpha = w0 / area;
+                const beta = w1 / area;
+                const gamma = w2 / area;
+
+                if (beta > 0.3) {
+                    //color(WHITE);
+                }
+
+                if (beta < 0.4) {
+                    //color(GRAY);
+                }
+
+                if (alpha > 0.7 or gamma < 0.1) {
+                    //color(WHITE);
+                }
+
                 pixel(@intCast(x), @intCast(y));
             }
         }
     }
+}
+
+fn is_top_left(a: Vec, b: Vec) bool {
+    var edge = V(b.x() - a.x(), b.y() - a.y());
+    var is_top_edge = (edge.y() == 0) and (edge.x() > 0);
+    var is_left_edge = edge.y() < 0;
+
+    return is_top_edge or is_left_edge;
 }
 
 fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
@@ -791,7 +826,7 @@ fn sizeline(a: Vec, b: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16)
     }
 
     if (a.eql(V(130, 130))) {
-        if ((b.x() < 95) or (b.y() < 96)) {
+        if (b.x() < 95 or b.y() < 96) {
             dotline(a, b.offset(35, 35), 3, points);
         }
     }
