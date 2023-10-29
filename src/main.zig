@@ -72,97 +72,73 @@ const State = struct {
         return si;
     }
 
-    fn update(self: *State) !void {
+    fn update(state: *State) !void {
         // Update mouse press on this and last frame
-        self.btf = self.buttons.* & (self.buttons.* ^ self.blf);
-        self.blf = self.buttons.*;
+        state.btf = state.buttons.* & (state.buttons.* ^ state.blf);
+        state.blf = state.buttons.*;
 
-        self.gtf = self.gamepad.* & (self.gamepad.* ^ self.glf);
-        self.glf = self.gamepad.*;
+        state.gtf = state.gamepad.* & (state.gamepad.* ^ state.glf);
+        state.glf = state.gamepad.*;
 
-        if (self.buttons.* & w4.MOUSE_LEFT != 0) {
+        if (state.buttons.* & w4.MOUSE_LEFT != 0) {
             // Update mouse position
-            self.x = @intCast(w4.MOUSE_X.*);
-            self.y = @intCast(w4.MOUSE_Y.*);
+            state.x = @intCast(w4.MOUSE_X.*);
+            state.y = @intCast(w4.MOUSE_Y.*);
 
-            if (self.x < 0) self.x = 0;
-            if (self.y < 0) self.y = 0;
-            if (self.x > 160) self.x = 160;
-            if (self.y > 160) self.y = 160;
+            if (state.x < 0) state.x = 0;
+            if (state.y < 0) state.y = 0;
+            if (state.x > 160) state.x = 160;
+            if (state.y > 160) state.y = 160;
 
-            self.m = V(@floatFromInt(self.x), @floatFromInt(self.y));
+            state.m = V(@floatFromInt(state.x), @floatFromInt(state.y));
         }
 
         // Increment the frame counter
-        self.frame +%= 1;
+        state.frame +%= 1;
 
         // Update the scene specific state
-        try self.scenes[self.si].update();
+        try state.scenes[state.si].update();
     }
 
-    fn draw(self: *State) !void {
+    fn draw(state: *State) !void {
         // Draw the scene
-        try self.scenes[s.si].draw();
+        try state.scenes[s.si].draw();
     }
 
-    fn mouseLeft(self: *State) bool {
-        return self.btf & w4.MOUSE_LEFT != 0;
+    fn mouseLeft(state: *State) bool {
+        return state.btf & w4.MOUSE_LEFT != 0;
     }
 
-    fn mouseMiddle(self: *State) bool {
-        return self.btf & w4.MOUSE_MIDDLE != 0;
+    fn mouseMiddle(state: *State) bool {
+        return state.btf & w4.MOUSE_MIDDLE != 0;
     }
 
-    fn mouseRight(self: *State) bool {
-        return self.btf & w4.MOUSE_RIGHT != 0;
+    fn mouseRight(state: *State) bool {
+        return state.btf & w4.MOUSE_RIGHT != 0;
     }
 
-    fn button1(self: *State) bool {
-        return self.gtf & w4.BUTTON_1 != 0;
+    fn button1(state: *State) bool {
+        return state.gtf & w4.BUTTON_1 != 0;
     }
 
-    fn button2(self: *State) bool {
-        return self.gtf & w4.BUTTON_2 != 0;
+    fn button2(state: *State) bool {
+        return state.gtf & w4.BUTTON_2 != 0;
     }
 
-    fn transition(self: *State, sceneIndex: u2) void {
+    fn transition(state: *State, sceneIndex: u2) void {
         w4.tracef("-== TRANSITION TO SCENE: [%d] ==-", @as(u8, sceneIndex));
 
-        _ = try self.scenes[sceneIndex].enter();
+        _ = try state.scenes[sceneIndex].enter();
 
-        self.si = sceneIndex;
-        self.save();
+        state.si = sceneIndex;
+        state.save();
     }
 
-    fn save(self: *State) void {
+    fn save(state: *State) void {
         // Save the scene index to disk
-        var wrote = w4.diskw(@ptrCast(&self.si), @sizeOf(@TypeOf(self.si)));
+        var wrote = w4.diskw(@ptrCast(&state.si), @sizeOf(@TypeOf(state.si)));
 
         w4.tracef("WROTE %d", wrote);
-    }
-};
-
-const Scene = union(enum) {
-    intro: Intro,
-    game: Game,
-    over: Over,
-
-    fn enter(self: *Scene) !void {
-        switch (self.*) {
-            inline else => |*scene| try scene.enter(),
-        }
-    }
-
-    fn update(self: *Scene) !void {
-        switch (self.*) {
-            inline else => |*scene| try scene.update(),
-        }
-    }
-
-    fn draw(self: *Scene) !void {
-        switch (self.*) {
-            inline else => |*scene| try scene.draw(),
-        }
     }
 };
 
@@ -199,19 +175,19 @@ const Intro = struct {
         0x6e51c8,
     },
 
-    fn enter(i: *Intro) !void {
-        w4.PALETTE.* = i.tangerineNoir;
+    fn enter(intro: *Intro) !void {
+        w4.PALETTE.* = intro.tangerineNoir;
     }
 
-    fn update(i: *Intro) !void {
+    fn update(intro: *Intro) !void {
         if (s.button2()) {
-            i.debugEnabled = !i.debugEnabled;
+            intro.debugEnabled = !intro.debugEnabled;
         }
 
-        w4.PALETTE.*[3] = i.repeating[
+        w4.PALETTE.*[3] = intro.repeating[
             @mod(
                 @divFloor(s.frame, 8),
-                i.repeating.len,
+                intro.repeating.len,
             )
         ];
 
@@ -220,14 +196,14 @@ const Intro = struct {
         }
     }
 
-    fn draw(i: *Intro) !void {
+    fn draw(intro: *Intro) !void {
         clear(BLACK);
 
-        i.bottom();
+        intro.bottom();
 
         color(BLACK);
 
-        i.scrollingTitle();
+        intro.scrollingTitle();
 
         const mv = V(@floatFromInt(s.x), @floatFromInt(s.y));
         const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
@@ -238,7 +214,7 @@ const Intro = struct {
         var offset = V(@divFloor(w, 4), @divFloor(h, 2));
         var fframe: f32 = @floatFromInt(s.frame);
         var t: f32 = @abs(@mod(@divFloor(fframe, 1), 800) - 400 / 400);
-        i.catline(V(-10, 60), V(170, 80), 25, np, t, offset);
+        intro.catline(V(-10, 60), V(170, 80), 25, np, t, offset);
 
         sizeline(V(30, 30), mv, 30, np, 0x23, 0x43);
         sizeline(V(30, 130), mv, 30, np, 0x23, 0x43);
@@ -259,7 +235,7 @@ const Intro = struct {
 
         var d: i32 = @intFromFloat(s.m.distance(Vec.center()));
 
-        try i.debug(.{ s.frame, s.x, s.y, d });
+        try intro.debug(.{ s.frame, s.x, s.y, d });
     }
 
     fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, t: f32, catOffset: Vec) void {
@@ -295,8 +271,8 @@ const Intro = struct {
         title("I  N  T  R  O", 180 + -offset - 18, 16, GRAY, PRIMARY);
     }
 
-    fn debug(i: *Intro, args: anytype) !void {
-        if (!i.debugEnabled) {
+    fn debug(intro: *Intro, args: anytype) !void {
+        if (!intro.debugEnabled) {
             return;
         }
 
@@ -361,17 +337,17 @@ const Game = struct {
         .mode = 1,
     },
 
-    fn enter(g: *Game) !void {
-        w4.PALETTE.* = g.palette;
+    fn enter(game: *Game) !void {
+        w4.PALETTE.* = game.palette;
 
         s.life = 3;
 
-        g.startup.play(0);
-        g.startup.play(1);
-        g.startup.play(2);
+        game.startup.play(0);
+        game.startup.play(1);
+        game.startup.play(2);
     }
 
-    fn update(g: *Game) !void {
+    fn update(game: *Game) !void {
         if (s.button1()) {
             s.life -= 1;
             s.score += 1;
@@ -380,7 +356,7 @@ const Game = struct {
         }
 
         if (s.life == 0) {
-            g.died.play(2);
+            game.died.play(2);
             s.transition(OVER);
         }
     }
@@ -435,12 +411,12 @@ const Over = struct {
     deathFlipped: bool = false,
     pressFlipped: bool = false,
 
-    fn enter(o: *Over) !void {
-        w4.PALETTE.* = o.palette;
+    fn enter(over: *Over) !void {
+        w4.PALETTE.* = over.palette;
 
         // Random positions for the snow particles over
-        for (0.., o.snowParticlesOver) |i, _| {
-            o.snowParticlesOver[i] = P(
+        for (0.., over.snowParticlesOver) |i, _| {
+            over.snowParticlesOver[i] = P(
                 rnd.random().float(f32) * 160,
                 rnd.random().float(f32) * 160,
                 @floatFromInt(45),
@@ -450,8 +426,8 @@ const Over = struct {
         }
 
         // Random positions for the snow particles behind
-        for (0.., o.snowParticlesBehind) |i, _| {
-            o.snowParticlesBehind[i] = P(
+        for (0.., over.snowParticlesBehind) |i, _| {
+            over.snowParticlesBehind[i] = P(
                 rnd.random().float(f32) * 160,
                 rnd.random().float(f32) * 160,
                 @floatFromInt(45),
@@ -461,19 +437,19 @@ const Over = struct {
         }
     }
 
-    fn update(o: *Over) !void {
+    fn update(over: *Over) !void {
         if (s.button1()) {
             s.transition(INTRO);
         }
 
-        o.updateSnow();
+        over.updateSnow();
 
-        if (every(120)) o.deathFlipped = !o.deathFlipped;
-        if (every(30)) o.pressFlipped = !o.pressFlipped;
-        if (every(400)) o.sound.play(2);
+        if (every(120)) over.deathFlipped = !over.deathFlipped;
+        if (every(30)) over.pressFlipped = !over.pressFlipped;
+        if (every(400)) over.sound.play(2);
     }
 
-    fn draw(o: *Over) !void {
+    fn draw(over: *Over) !void {
         clear(GRAY);
 
         color(WHITE);
@@ -481,13 +457,13 @@ const Over = struct {
 
         var flags = death.flags;
 
-        if (o.deathFlipped) {
+        if (over.deathFlipped) {
             flags |= w4.BLIT_FLIP_X;
         }
 
-        o.snowBehind();
+        over.snowBehind();
 
-        const fg: u16 = if (o.pressFlipped) PRIMARY else WHITE;
+        const fg: u16 = if (over.pressFlipped) PRIMARY else WHITE;
 
         title("PRESS\n{X}to\nINTRO", 104, 105, BLACK, fg);
 
@@ -513,13 +489,13 @@ const Over = struct {
 
         color(0x10);
         image(pine, -10, 115, pine.flags);
-        o.snowOver();
+        over.snowOver();
 
         title("The SYLT is OVER!!", 8, 3, PRIMARY, WHITE);
     }
 
-    fn snowBehind(o: *Over) void {
-        for (0.., o.snowParticlesBehind) |i, p| {
+    fn snowBehind(over: *Over) void {
+        for (0.., over.snowParticlesBehind) |i, p| {
             if (@mod(i, 5) == 0) {
                 color(GRAY);
                 ppx(p.add(V(1, 1)));
@@ -547,8 +523,8 @@ const Over = struct {
         }
     }
 
-    fn snowOver(o: *Over) void {
-        for (0.., o.snowParticlesOver) |i, p| {
+    fn snowOver(over: *Over) void {
+        for (0.., over.snowParticlesOver) |i, p| {
             if (@mod(i, 5) == 0) {
                 color(GRAY);
                 ppx(p.add(V(1, 1)));
@@ -576,8 +552,8 @@ const Over = struct {
         }
     }
 
-    fn updateSnow(o: *Over) void {
-        for (0.., o.snowParticlesOver) |i, p| {
+    fn updateSnow(over: *Over) void {
+        for (0.., over.snowParticlesOver) |i, p| {
             var n = p.update(0.1);
 
             n.position.data[0] = @mod(n.position.data[0], 165);
@@ -587,10 +563,10 @@ const Over = struct {
                 n.life = rnd.random().float(f32) * 10;
             }
 
-            o.snowParticlesOver[i] = n;
+            over.snowParticlesOver[i] = n;
         }
 
-        for (0.., o.snowParticlesBehind) |i, p| {
+        for (0.., over.snowParticlesBehind) |i, p| {
             var n = p.update(0.1);
 
             n.position.data[0] = @mod(n.position.data[0], 165);
@@ -600,7 +576,31 @@ const Over = struct {
                 n.life = rnd.random().float(f32) * 10;
             }
 
-            o.snowParticlesBehind[i] = n;
+            over.snowParticlesBehind[i] = n;
+        }
+    }
+};
+
+const Scene = union(enum) {
+    intro: Intro,
+    game: Game,
+    over: Over,
+
+    fn enter(self: *Scene) !void {
+        switch (self.*) {
+            inline else => |*scene| try scene.enter(),
+        }
+    }
+
+    fn update(self: *Scene) !void {
+        switch (self.*) {
+            inline else => |*scene| try scene.update(),
+        }
+    }
+
+    fn draw(self: *Scene) !void {
+        switch (self.*) {
+            inline else => |*scene| try scene.draw(),
         }
     }
 };
@@ -849,22 +849,6 @@ fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
     title(str, x, y, bg, fg);
 }
 
-//
-// Exported functions for the WASM-4 game loop
-//
-
-export fn start() void {
-    s.start();
-}
-
-export fn update() void {
-    // Update the state
-    s.update() catch unreachable;
-
-    // Draw the state
-    s.draw() catch unreachable;
-}
-
 const Sprite = struct {
     sprite: [*]const u8,
     width: u32,
@@ -896,3 +880,19 @@ pub const pine = Sprite{
     .height = 32,
     .flags = w4.BLIT_1BPP,
 };
+
+//
+// Exported functions for the WASM-4 game loop
+//
+
+export fn start() void {
+    s.start();
+}
+
+export fn update() void {
+    // Update the state
+    s.update() catch unreachable;
+
+    // Draw the state
+    s.draw() catch unreachable;
+}
