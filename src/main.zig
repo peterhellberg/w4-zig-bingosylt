@@ -27,15 +27,21 @@ const State = struct {
     si: u2 = 0, // Scene index
     x: i32 = 0, // Mouse X
     y: i32 = 0, // Mouse Y
-    lf: u8 = 0, // Pressed last frame
-    tf: u8 = 0, // Pressed this frame
+
+    blf: u8 = 0, // Buttons pressed last frame
+    btf: u8 = 0, // Buttons pressed this frame
+
+    glf: u8 = 0, // Gamepad pressed last frame
+    gtf: u8 = 0, // Gamepad pressed this frame
 
     life: i8 = 3, // Life
     score: u8 = 0, // Some sort of game score
     frame: u32 = 0,
 
-    // The input device (gamepad or mouse)
-    input: *const u8 = w4.MOUSE_BUTTONS,
+    // The inputs
+    buttons: *const u8 = w4.MOUSE_BUTTONS,
+    gamepad: *const u8 = w4.GAMEPAD1,
+
     m: Vec = Vec.zero(),
 
     scenes: [3]Scene = .{
@@ -46,10 +52,10 @@ const State = struct {
 
     fn start(_: *State) void {
         trace(
-            \\ ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
-            \\|   __ |_     _|    |  |     __|       |     __|   |   |     ||_     _|
-            \\|   __ <_|   |_|       |    |  |   -   |__     |\     /|       ||   |
-            \\|______|_______|__|____|_______|_______|_______| |___| |_______||___|
+            \\    ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
+            \\   |   __ |_     _|    |  |     __|       |     __|   |   |     ||_     _|
+            \\  /|   __ <_|   |_|       |    |  |   -   |__     |\     /|       || #9|\
+            \\.::|______|_______|__|____|_______|_______|_______| |___| |_______||___|::.
             \\
         );
 
@@ -68,14 +74,24 @@ const State = struct {
 
     fn update(self: *State) !void {
         // Update mouse press on this and last frame
-        self.tf = self.input.* & (self.input.* ^ self.lf);
-        self.lf = self.input.*;
+        self.btf = self.buttons.* & (self.buttons.* ^ self.blf);
+        self.blf = self.buttons.*;
 
-        // Update mouse position
-        self.x = @intCast(w4.MOUSE_X.*);
-        self.y = @intCast(w4.MOUSE_Y.*);
+        self.gtf = self.gamepad.* & (self.gamepad.* ^ self.glf);
+        self.glf = self.gamepad.*;
 
-        self.m = V(@floatFromInt(self.x), @floatFromInt(self.y));
+        if (self.buttons.* & w4.MOUSE_LEFT != 0) {
+            // Update mouse position
+            self.x = @intCast(w4.MOUSE_X.*);
+            self.y = @intCast(w4.MOUSE_Y.*);
+
+            if (self.x < 0) self.x = 0;
+            if (self.y < 0) self.y = 0;
+            if (self.x > 160) self.x = 160;
+            if (self.y > 160) self.y = 160;
+
+            self.m = V(@floatFromInt(self.x), @floatFromInt(self.y));
+        }
 
         // Increment the frame counter
         self.frame +%= 1;
@@ -89,12 +105,24 @@ const State = struct {
         try self.scenes[s.si].draw();
     }
 
-    fn rbtn(self: *State) bool {
-        return self.tf & w4.MOUSE_RIGHT != 0;
+    fn mouseLeft(self: *State) bool {
+        return self.btf & w4.MOUSE_LEFT != 0;
     }
 
-    fn mbtn(self: *State) bool {
-        return self.tf & w4.MOUSE_MIDDLE != 0;
+    fn mouseMiddle(self: *State) bool {
+        return self.btf & w4.MOUSE_MIDDLE != 0;
+    }
+
+    fn mouseRight(self: *State) bool {
+        return self.btf & w4.MOUSE_RIGHT != 0;
+    }
+
+    fn button1(self: *State) bool {
+        return self.gtf & w4.BUTTON_1 != 0;
+    }
+
+    fn button2(self: *State) bool {
+        return self.gtf & w4.BUTTON_2 != 0;
     }
 
     fn transition(self: *State, sceneIndex: u2) void {
@@ -139,7 +167,8 @@ const Scene = union(enum) {
 };
 
 const Intro = struct {
-    debugEnabled: bool = true,
+    debugEnabled: bool = false,
+    catLastPos: Vec = Vec.zero(),
 
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
@@ -175,11 +204,11 @@ const Intro = struct {
     }
 
     fn update(i: *Intro) !void {
-        if (s.rbtn()) {
+        if (s.button1()) {
             s.transition(GAME);
         }
 
-        if (s.mbtn()) {
+        if (s.button2()) {
             i.debugEnabled = !i.debugEnabled;
         }
 
@@ -192,61 +221,88 @@ const Intro = struct {
     }
 
     fn draw(i: *Intro) !void {
-        var center = V(80, 80);
-        var d: i32 = @intFromFloat(s.m.distance(center));
-
         clear(BLACK);
 
         i.bottom();
 
         color(BLACK);
 
+        i.scrollingTitle();
+
         const mv = V(@floatFromInt(s.x), @floatFromInt(s.y));
         const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
 
-        i.scrollingTitle();
-
-        // Gray cat
-        color(0x4002);
-        image(cat, 110, 122, cat.flags | w4.BLIT_FLIP_X);
-
+        // White cat
         var w: f32 = @floatFromInt(cat.width);
         var h: f32 = @floatFromInt(cat.height);
         var offset = V(@divFloor(w, 4), @divFloor(h, 2));
-
-        // White cat
         var fframe: f32 = @floatFromInt(s.frame);
-        var t: f32 = @abs((@mod(@divFloor(fframe, 4), 20) - 10) / 10);
+        var t: f32 = @abs((@mod(@divFloor(fframe, 1), 800) - 400) / 400);
+        i.catline(V(-10, 60), V(170, 80), 25, np, t, offset);
 
-        if (i.debugEnabled) {
-            color(0x44);
-            catline(s.m, center, 1, np);
+        sizeline(V(30, 30), mv, 30, np, 0x23, 0x43);
+        sizeline(V(30, 130), mv, 30, np, 0x23, 0x43);
+        sizeline(V(130, 30), mv, 30, np, 0x23, 0x43);
+        sizeline(V(130, 130), mv, 30, np, 0x23, 0x43);
+
+        color(0x43);
+        oval(s.m.sub(V(10, 10)), 20, 20);
+        color(0x4001);
+
+        var pos = s.m.sub(offset).sub(Vec.set(1));
+
+        if (pos.x() < 80) {
+            img(cat, pos, cat.flags | w4.BLIT_FLIP_X);
+        } else {
+            img(cat, pos, cat.flags);
         }
 
-        color(0x4001);
-        img(cat, s.m.lerp(center, t).sub(offset), cat.flags);
-
-        color(0x23);
-        catline(V(0, 0), mv, 5, np);
-        catline(V(0, 159), mv, 5, np);
-        catline(V(159, 0), mv, 5, np);
-        catline(V(159, 159), mv, 5, np);
+        var d: i32 = @intFromFloat(s.m.distance(Vec.center()));
 
         try i.debug(.{ s.frame, s.x, s.y, d });
     }
 
-    fn scrollingTitle(_: *Intro) void {
-        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 1), 320));
+    fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, t: f32, catOffset: Vec) void {
+        const fsize: f32 = @floatFromInt(size);
+        const offset = Vec.set(@divFloor(fsize, 2));
+        const catPos = a.lerp(b, t).sub(catOffset);
 
-        title("_  _  _  _  _", 180 + -offset - 13, 34, GRAY, PRIMARY);
-        title("-  -  -  -  -", 180 + -offset - 12, 36, GRAY, PRIMARY);
-        title("I  N  T  R  O", 180 + -offset - 18, 36, GRAY, PRIMARY);
+        for (0.., points) |i, p| {
+            if (@mod(i, 2) == 0) {
+                color(0x23);
+            } else {
+                color(0x42);
+            }
+
+            rect(a.lerp(b, p).sub(offset), size, size);
+        }
+
+        color(0x4001);
+        if (intro.catLastPos.x() < catPos.x()) {
+            img(cat, catPos, cat.flags | w4.BLIT_FLIP_X);
+        } else {
+            img(cat, catPos, cat.flags);
+        }
+
+        intro.catLastPos = catPos;
+    }
+
+    fn scrollingTitle(_: *Intro) void {
+        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 320));
+
+        title("_  _  _  _  _", 180 + -offset - 13, 14, GRAY, PRIMARY);
+        title("-  -  -  -  -", 180 + -offset - 12, 16, GRAY, PRIMARY);
+        title("I  N  T  R  O", 180 + -offset - 18, 16, GRAY, PRIMARY);
     }
 
     fn debug(i: *Intro, args: anytype) !void {
         if (!i.debugEnabled) {
             return;
         }
+
+        // Gray cat
+        color(0x4002);
+        image(cat, 110, 132, cat.flags | w4.BLIT_FLIP_X);
 
         const str = try fmt.allocPrint(allocator,
             \\FRAME: {d}
@@ -256,7 +312,7 @@ const Intro = struct {
         defer allocator.free(str);
 
         // trace(str);
-        title(str, 20, 120, GRAY, WHITE);
+        title(str, 20, 130, GRAY, WHITE);
     }
 
     fn bottom(_: *Intro) void {
@@ -316,7 +372,7 @@ const Game = struct {
     }
 
     fn update(g: *Game) !void {
-        if (s.rbtn()) {
+        if (s.button1()) {
             s.life -= 1;
             s.score += 1;
 
@@ -368,7 +424,9 @@ const Over = struct {
         .mode = 3,
     },
 
-    snowParticles: [256]Particle = [_]Particle{.{}} ** 256,
+    snowParticlesOver: [64]Particle = [_]Particle{.{}} ** 64,
+    snowParticlesBehind: [128]Particle = [_]Particle{.{}} ** 128,
+
     //snowParticles: [1]Particle = [_]Particle{.{}} ** 1,
 
     deathFlipped: bool = false,
@@ -377,9 +435,20 @@ const Over = struct {
     fn enter(o: *Over) !void {
         w4.PALETTE.* = o.palette;
 
-        // Random positions for the snow particles
-        for (0.., o.snowParticles) |i, _| {
-            o.snowParticles[i] = P(
+        // Random positions for the snow particles over
+        for (0.., o.snowParticlesOver) |i, _| {
+            o.snowParticlesOver[i] = P(
+                rnd.random().float(f32) * 160,
+                rnd.random().float(f32) * 160,
+                @floatFromInt(45),
+                5 + rnd.random().float(f32) * 15,
+                10,
+            );
+        }
+
+        // Random positions for the snow particles behind
+        for (0.., o.snowParticlesBehind) |i, _| {
+            o.snowParticlesBehind[i] = P(
                 rnd.random().float(f32) * 160,
                 rnd.random().float(f32) * 160,
                 @floatFromInt(45),
@@ -390,7 +459,7 @@ const Over = struct {
     }
 
     fn update(o: *Over) !void {
-        if (s.rbtn()) {
+        if (s.button1()) {
             s.transition(INTRO);
         }
 
@@ -404,29 +473,79 @@ const Over = struct {
     fn draw(o: *Over) !void {
         clear(GRAY);
 
+        color(WHITE);
+        rect(V(0, 130), 160, 30);
+
         var flags = death.flags;
 
         if (o.deathFlipped) {
             flags |= w4.BLIT_FLIP_X;
         }
 
-        color(0x4321);
-        image(death, 40, 15, flags);
-
-        color(0x4321);
-        image(coffee, 68, 150, coffee.flags);
-
-        o.snow();
-
-        title("The game is over!!", 8, 3, PRIMARY, WHITE);
+        o.snowBehind();
 
         const fg: u16 = if (o.pressFlipped) PRIMARY else WHITE;
 
-        title("Press (X) to restart", 0, 145, BLACK, fg);
+        title("PRESS\n{X}to\nINTRO", 104, 105, BLACK, fg);
+
+        color(0x20);
+        image(pine, 142, 107, pine.flags | w4.BLIT_FLIP_X);
+
+        color(0x10);
+        image(pine, 142, 106, pine.flags | w4.BLIT_FLIP_X);
+
+        title("|:.:* .*.,*_*", -4, 125, GRAY, GRAY);
+        title("*_*,.**,.|::", -7, 123, GRAY, GRAY);
+
+        color(0x4301);
+        image(death, 40, 15, flags);
+
+        color(0x4302);
+        image(coffee, 38, 134, coffee.flags);
+        color(BLACK);
+        rect(V(43, 137), 2, 2);
+
+        color(0x20);
+        image(pine, -10, 116, pine.flags);
+
+        color(0x10);
+        image(pine, -10, 115, pine.flags);
+        o.snowOver();
+
+        title("The SYLT is OVER!!", 8, 3, PRIMARY, WHITE);
     }
 
-    fn snow(o: *Over) void {
-        for (0.., o.snowParticles) |i, p| {
+    fn snowBehind(o: *Over) void {
+        for (0.., o.snowParticlesBehind) |i, p| {
+            if (@mod(i, 5) == 0) {
+                color(GRAY);
+                ppx(p.add(V(1, 1)));
+
+                color(WHITE);
+                ppx(p.add(V(1, -1)));
+                if (@mod(i, 4) == 0) {
+                    ppx(p.add(V(-1, -1)));
+                    ppx(p.add(V(-1, 1)));
+
+                    if (@mod(i, 3) == 0) {
+                        ppx(p.add(V(1, 1)));
+                    }
+                }
+            }
+
+            ppx(p);
+
+            color(WHITE);
+            vpx(p.newpos(-0.1));
+            vpx(p.newpos(-0.15));
+
+            color(GRAY);
+            vpx(p.newpos(-0.2));
+        }
+    }
+
+    fn snowOver(o: *Over) void {
+        for (0.., o.snowParticlesOver) |i, p| {
             if (@mod(i, 5) == 0) {
                 color(GRAY);
                 ppx(p.add(V(1, 1)));
@@ -455,7 +574,7 @@ const Over = struct {
     }
 
     fn updateSnow(o: *Over) void {
-        for (0.., o.snowParticles) |i, p| {
+        for (0.., o.snowParticlesOver) |i, p| {
             var n = p.update(0.1);
 
             n.position.data[0] = @mod(n.position.data[0], 165);
@@ -465,7 +584,20 @@ const Over = struct {
                 n.life = rnd.random().float(f32) * 10;
             }
 
-            o.snowParticles[i] = n;
+            o.snowParticlesOver[i] = n;
+        }
+
+        for (0.., o.snowParticlesBehind) |i, p| {
+            var n = p.update(0.1);
+
+            n.position.data[0] = @mod(n.position.data[0], 165);
+            n.position.data[1] = @mod(n.position.data[1], 165);
+
+            if (n.life < 0) {
+                n.life = rnd.random().float(f32) * 10;
+            }
+
+            o.snowParticlesBehind[i] = n;
         }
     }
 };
@@ -551,7 +683,7 @@ fn image(m: Sprite, x: i32, y: i32, flags: u32) void {
 }
 
 fn img(m: Sprite, v: Vec, flags: u32) void {
-    blit(m.sprite, v.X(), v.Y(), m.width, m.height, flags);
+    blit(m.sprite, @intFromFloat(v.x()), @intFromFloat(v.y()), m.width, m.height, flags);
 }
 
 fn color(c: u16) void {
@@ -565,7 +697,7 @@ fn clear(c: u8) void {
 }
 
 fn vpx(v: Vec) void {
-    pixel(v.X(), v.Y());
+    pixel(@intFromFloat(v.x()), @intFromFloat(v.y()));
 }
 
 fn ppx(p: Particle) void {
@@ -603,13 +735,39 @@ fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
     }
 }
 
-fn catline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
+fn sizeline(a: Vec, b: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16) void {
     for (0.., points) |i, p| {
-        const size = dotSize * (points.len - i);
+        const size = dotSize * i / 4;
         const fsize: f32 = @floatFromInt(size);
         const offset = Vec.set(@divFloor(fsize, 2));
 
-        oval(a.lerp(b, p).sub(offset), size, size);
+        if (@mod(i, 2) == 0) {
+            color(c2);
+        } else {
+            color(c1);
+        }
+
+        rect(a.lerp(b, p).sub(offset), size, size);
+    }
+
+    color(0x4444);
+
+    if (a.eql(V(30, 30))) {
+        dotline(a, b.offset(-35, -35), 3, points);
+    }
+
+    if (a.eql(V(130, 30))) {
+        dotline(a, b.offset(35, -35), 3, points);
+    }
+
+    if (a.eql(V(30, 130))) {
+        dotline(a, b.offset(-35, 35), 3, points);
+    }
+
+    if (a.eql(V(130, 130))) {
+        if ((b.x() < 95) or (b.y() < 96)) {
+            dotline(a, b.offset(35, 35), 3, points);
+        }
     }
 }
 
@@ -672,4 +830,11 @@ pub const coffee = Sprite{
     .sprite = ([40]u8{ 0x55, 0x54, 0x15, 0x55, 0x55, 0x54, 0x45, 0x55, 0x55, 0x40, 0x01, 0x55, 0x55, 0x14, 0x00, 0x55, 0x55, 0xd4, 0x00, 0x55, 0x55, 0xeb, 0x03, 0x55, 0x5a, 0xaf, 0xfe, 0xa9, 0xaa, 0xaa, 0xaa, 0xa5, 0x5a, 0x6a, 0xaa, 0x55, 0x6a, 0xa9, 0x55, 0x55 })[0..],
     .width = 16,
     .height = 10,
+};
+
+pub const pine = Sprite{
+    .sprite = ([128]u8{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x01, 0xe0, 0x00, 0x00, 0x07, 0xc0, 0x00, 0x00, 0x07, 0xf0, 0x00, 0x00, 0x3f, 0xfc, 0x00, 0x00, 0x1f, 0xe0, 0x00, 0x00, 0x0f, 0xe0, 0x00, 0x00, 0x07, 0xf8, 0x00, 0x00, 0x1f, 0xf1, 0x80, 0x00, 0x3f, 0xfe, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0x7f, 0xff, 0x80, 0x03, 0xff, 0xff, 0xd0, 0x01, 0xff, 0xff, 0xa0, 0x01, 0xff, 0xff, 0x80, 0x02, 0x3f, 0xfe, 0x00, 0x00, 0xff, 0xff, 0x80, 0x07, 0xff, 0xff, 0xf0, 0x01, 0xff, 0xff, 0xb0, 0x01, 0xff, 0xff, 0x00, 0x00, 0x3f, 0xff, 0xa0, 0x01, 0xff, 0xff, 0xf0, 0x0f, 0xff, 0xff, 0xf0, 0x11, 0xff, 0xff, 0x9c, 0x01, 0x3f, 0xff, 0xf0, 0x03, 0xff, 0xff, 0xe0 })[0..],
+    .width = 32,
+    .height = 32,
+    .flags = w4.BLIT_1BPP,
 };
