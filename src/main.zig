@@ -400,9 +400,6 @@ const Game = struct {
             rect(V(10, 30 - fi), 10, 10);
         }
 
-        triangle(.{ V(90, 20), V(120, 20), V(120, 40) }, PRIMARY);
-        triangle(.{ V(80, 40), V(120, 40), V(90, 60) }, PRIMARY);
-
         triangle(.{ V(80, 90), V(100, 150), V(10, 150) }, WHITE);
         triangle(.{ V(80, 90), V(155, 150), V(100, 150) }, GRAY);
     }
@@ -740,9 +737,9 @@ fn triangle(t: [3]Vec, fg: u16) void {
 
     color(fg);
 
-    const bias0: f32 = if (is_top_left(t[1], t[2])) 0 else -1;
-    const bias1: f32 = if (is_top_left(t[2], t[0])) 0 else -1;
-    const bias2: f32 = if (is_top_left(t[0], t[1])) 0 else -1;
+    const bias0: f32 = if (isTopLeft(t[1], t[2])) 0 else -1;
+    const bias1: f32 = if (isTopLeft(t[2], t[0])) 0 else -1;
+    const bias2: f32 = if (isTopLeft(t[0], t[1])) 0 else -1;
 
     const area = Vec.cross(t[0], t[1], t[2]);
 
@@ -779,7 +776,7 @@ fn triangle(t: [3]Vec, fg: u16) void {
     }
 }
 
-fn is_top_left(a: Vec, b: Vec) bool {
+fn isTopLeft(a: Vec, b: Vec) bool {
     var edge = V(b.x() - a.x(), b.y() - a.y());
     var is_top_edge = (edge.y() == 0) and (edge.x() > 0);
     var is_left_edge = edge.y() < 0;
