@@ -19,18 +19,15 @@ pub fn y(self: Self) f32 {
     return self.data[1];
 }
 
-pub fn X(self: Self) i32 {
-    return @intFromFloat(self.x());
-}
-
-pub fn Y(self: Self) i32 {
-    return @intFromFloat(self.y());
-}
-
 /// Set all components to the same given value.
 pub fn set(val: f32) Self {
     const result = @as(Vec, @splat(val));
     return .{ .data = result };
+}
+
+/// Shorthand for (80..)
+pub fn center() Self {
+    return set(80);
 }
 
 /// Shorthand for (0..).
@@ -166,4 +163,8 @@ pub fn lerp(first_vector: Self, second_vector: Self, t: f32) Self {
 
     const result = from + (to - from) * @as(Vec, @splat(t));
     return .{ .data = result };
+}
+
+pub fn offset(first_vector: Self, vx: f32, vy: f32) Self {
+    return first_vector.add(new(vx, vy));
 }
