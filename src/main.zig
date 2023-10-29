@@ -396,9 +396,12 @@ const Game = struct {
         while (i <= s.life) : (i += 1) {
             const fi: f32 = @floatFromInt(i);
 
-            color(0x31);
+            color(0x34);
             rect(V(10, 30 - fi), 10, 10);
         }
+
+        triangle(.{ V(80, 90), V(100, 150), V(10, 150) }, WHITE);
+        triangle(.{ V(80, 90), V(155, 150), V(100, 150) }, GRAY);
     }
 };
 
@@ -635,10 +638,10 @@ const Tone = struct {
 };
 
 // The colors
-const WHITE: u16 = 1;
-const GRAY: u16 = 2;
-const BLACK: u16 = 3;
-const PRIMARY: u16 = 4;
+const WHITE: u16 = 0x0001;
+const GRAY: u16 = 0x0002;
+const BLACK: u16 = 0x0003;
+const PRIMARY: u16 = 0x0004;
 
 // The scene indexes
 const INTRO: u2 = 0;
@@ -724,6 +727,29 @@ fn pixel(x: i32, y: i32) void {
     const c = (palette_color - 1) & 0b11;
 
     w4.FRAMEBUFFER[idx] = (c << shift) | (w4.FRAMEBUFFER[idx] & ~mask);
+}
+
+fn triangle(t: [3]Vec, fg: u16) void {
+    const xMin: usize = @intFromFloat(@min(@min(t[0].x(), t[1].x()), t[2].x()));
+    const yMin: usize = @intFromFloat(@min(@min(t[0].y(), t[1].y()), t[2].y()));
+    const xMax: usize = @intFromFloat(@max(@max(t[0].x(), t[1].x()), t[2].x()));
+    const yMax: usize = @intFromFloat(@max(@max(t[0].y(), t[1].y()), t[2].y()));
+
+    color(fg);
+
+    for (yMin..yMax) |y| {
+        for (xMin..xMax) |x| {
+            var p = V(@floatFromInt(x), @floatFromInt(y));
+
+            const w0 = p.cross(t[0], t[1]);
+            const w1 = p.cross(t[1], t[2]);
+            const w2 = p.cross(t[2], t[0]);
+
+            if ((w0 > 0) and (w1 > 0) and (w2 > 0)) {
+                pixel(@intCast(x), @intCast(y));
+            }
+        }
+    }
 }
 
 fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
