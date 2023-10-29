@@ -44,11 +44,3 @@ pub fn add(self: Self, v: Vec) Self {
         .life = self.life,
     };
 }
-
-pub fn X(self: Self) i32 {
-    return @intFromFloat(self.position.x());
-}
-
-pub fn Y(self: Self) i32 {
-    return @intFromFloat(self.position.y());
-}
