@@ -156,6 +156,14 @@ pub fn dot(first_vector: Self, second_vector: Self) f32 {
     return @reduce(.Add, first_vector.data * second_vector.data);
 }
 
+// Return the cross product between three given vector.
+pub fn cross(p: Self, a: Self, b: Self) f32 {
+    const ab: Self = .{ .data = .{ b.x() - a.x(), b.y() - a.y() } };
+    const ap: Self = .{ .data = .{ p.x() - a.x(), p.y() - a.y() } };
+
+    return ab.x() * ap.y() - ab.y() * ap.x();
+}
+
 /// Linear interpolation between two vectors
 pub fn lerp(first_vector: Self, second_vector: Self, t: f32) Self {
     const from = first_vector.data;
