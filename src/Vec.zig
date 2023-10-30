@@ -101,8 +101,8 @@ pub fn toArray(self: Self) [2]f32 {
 }
 
 /// Return the angle (in degrees) between two vectors.
-pub fn getAngle(first_vector: Self, second_vector: Self) f32 {
-    const dot_product = dot(norm(first_vector), norm(second_vector));
+pub fn getAngle(self: Self, other: Self) f32 {
+    const dot_product = dot(norm(self), norm(other));
     return radianToDegree(math.acos(dot_product));
 }
 
@@ -119,8 +119,8 @@ pub fn length(self: Self) f32 {
 
 /// Return the distance between two points.
 /// √[(x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2 ...]
-pub fn distance(first_vector: Self, second_vector: Self) f32 {
-    return length(first_vector.sub(second_vector));
+pub fn distance(self: Self, other: Self) f32 {
+    return length(self.sub(other));
 }
 
 /// Construct new normalized vector from a given one.
@@ -134,37 +134,37 @@ pub fn norm(self: Self) Self {
 }
 
 /// Return true if two vectors are equals.
-pub fn eql(first_vector: Self, second_vector: Self) bool {
-    return @reduce(.And, first_vector.data == second_vector.data);
+pub fn eql(self: Self, other: Self) bool {
+    return @reduce(.And, self.data == other.data);
 }
 
 /// Substraction between two given vector.
-pub fn sub(first_vector: Self, second_vector: Self) Self {
-    const result = first_vector.data - second_vector.data;
+pub fn sub(self: Self, other: Self) Self {
+    const result = self.data - other.data;
     return .{ .data = result };
 }
 
 /// Addition betwen two given vector.
-pub fn add(first_vector: Self, second_vector: Self) Self {
-    const result = first_vector.data + second_vector.data;
+pub fn add(self: Self, other: Self) Self {
+    const result = self.data + other.data;
     return .{ .data = result };
 }
 
 /// Component wise multiplication betwen two given vector.
-pub fn mul(first_vector: Self, second_vector: Self) Self {
-    const result = first_vector.data * second_vector.data;
+pub fn mul(self: Self, other: Self) Self {
+    const result = self.data * other.data;
     return .{ .data = result };
 }
 
 /// Construct vector from the max components in two vectors
-pub fn max(first_vector: Self, second_vector: Self) Self {
-    const result = @max(first_vector.data, second_vector.data);
+pub fn max(self: Self, other: Self) Self {
+    const result = @max(self.data, other.data);
     return .{ .data = result };
 }
 
 /// Construct vector from the min components in two vectors
-pub fn min(first_vector: Self, second_vector: Self) Self {
-    const result = @min(first_vector.data, second_vector.data);
+pub fn min(self: Self, other: Self) Self {
+    const result = @min(self.data, other.data);
     return .{ .data = result };
 }
 
@@ -176,8 +176,8 @@ pub fn scale(self: Self, scalar: f32) Self {
 
 /// Return the dot product between two given vector.
 /// (x1 * x2) + (y1 * y2) + (z1 * z2) ...
-pub fn dot(first_vector: Self, second_vector: Self) f32 {
-    return @reduce(.Add, first_vector.data * second_vector.data);
+pub fn dot(self: Self, other: Self) f32 {
+    return @reduce(.Add, self.data * other.data);
 }
 
 // Return the cross product between three given vector.
@@ -189,26 +189,26 @@ pub fn cross(p: Self, a: Self, b: Self) f32 {
 }
 
 /// Linear interpolation between two vectors
-pub fn lerp(first_vector: Self, second_vector: Self, t: f32) Self {
-    const from = first_vector.data;
-    const to = second_vector.data;
+pub fn lerp(self: Self, other: Self, t: f32) Self {
+    const from = self.data;
+    const to = other.data;
 
     const result = from + (to - from) * @as(Vec, @splat(t));
     return .{ .data = result };
 }
 
-pub fn offset(first_vector: Self, vx: f32, vy: f32) Self {
-    return first_vector.add(new(vx, vy));
+pub fn offset(self: Self, vx: f32, vy: f32) Self {
+    return self.add(new(vx, vy));
 }
 
-pub fn line(a: Self, b: Self) void {
-    w4.line(a.xi(), a.yi(), b.xi(), b.yi());
+pub fn line(self: Self, other: Self) void {
+    w4.line(self.xi(), self.yi(), other.xi(), other.yi());
 }
 
-pub fn oval(pos: Self, width: u32, height: u32) void {
-    w4.oval(pos.xi(), pos.yi(), width, height);
+pub fn oval(self: Self, width: u32, height: u32) void {
+    w4.oval(self.xi(), self.yi(), width, height);
 }
 
-pub fn rect(pos: Self, width: u32, height: u32) void {
-    w4.rect(pos.xi(), pos.yi(), width, height);
+pub fn rect(self: Self, width: u32, height: u32) void {
+    w4.rect(self.xi(), self.yi(), width, height);
 }
