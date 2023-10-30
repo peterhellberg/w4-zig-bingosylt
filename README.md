@@ -40,6 +40,23 @@ Bundle for html, linux and windows using:
 make bundle
 ```
 
+## Sprites
+
+I generate sprites from PNG files like this `w4 png2src -t zig-sprite.tpl image.png`
+
+Where the custom template for `w4 png2src` is:
+
+```mustache
+{{#sprites}}
+pub const {{name}} = Sprite{
+    .sprite = ([{{length}}]u8{ {{bytes}} })[0..],
+    .width = {{width}},
+    .height = {{height}},
+    .flags = {{flags}}, // {{flagsHumanReadable}}
+};
+{{/sprites}}
+```
+
 ## Links
 
 - :art: [Lospec Pixel Art Scaler](https://lospec.com/pixel-art-scaler/): This tools helps you scale pixel art to bigger sizes without filtering
