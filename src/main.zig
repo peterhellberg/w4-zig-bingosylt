@@ -390,8 +390,8 @@ const Game = struct {
             rect(V(10, 30 - fi), 10, 10);
         }
 
-        triangle(T(80, 30, 100, 15, 120, 40), triColor);
-        triangle(T(80, 30, 120, 40, 90, 50), triPRIMARY);
+        triangle(T(100, -1, 120, -5, 105, 30), triColor);
+        triangle(T(80, 30, 140, 40, 90, 50), triPRIMARY);
 
         triangle(T(80, 90, 100, 150, 10, 150), triXOR);
         triangle(T(80, 90, 155, 150, 100, 150), triGRAY);
@@ -408,7 +408,7 @@ fn triColor(p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16 {
     const x: u16 = @intFromFloat(p.x());
     const y: u16 = @intFromFloat(p.y());
 
-    if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 20))) / 32 - 16) and @mod(p.x(), 1) == 0 and @mod(p.y(), 2) == 1) {
+    if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 96))) / 32 - 16) and @mod(x, 2) == 0 and @mod(y, 2) == 1) {
         if (d < 11 and @mod(s.frame, 24) < 12) {
             return PRIMARY;
         }
