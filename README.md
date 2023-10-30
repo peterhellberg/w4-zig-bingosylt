@@ -26,9 +26,9 @@ make bundle
 
 ## Sprites
 
-I generate sprites from PNG files like this `w4 png2src -t zig-sprite.tpl image.png`
+I generate sprites from PNG files like this `w4 png2src -t sprite.tpl image.png`
 
-Where the custom template for `w4 png2src` is:
+Where the custom template for `w4 png2src` looks like this:
 ```zig
 {{#sprites}}
 pub const {{name}} = Sprite{
@@ -39,6 +39,7 @@ pub const {{name}} = Sprite{
 };
 {{/sprites}}
 ```
+
 
 ## Links
 
