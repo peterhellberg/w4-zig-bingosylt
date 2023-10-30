@@ -1,5 +1,8 @@
 const std = @import("std");
 const math = std.math;
+
+const w4 = @import("wasm4.zig");
+
 const Self = @This();
 
 const Vec = @Vector(2, f32);
@@ -196,4 +199,16 @@ pub fn lerp(first_vector: Self, second_vector: Self, t: f32) Self {
 
 pub fn offset(first_vector: Self, vx: f32, vy: f32) Self {
     return first_vector.add(new(vx, vy));
+}
+
+pub fn line(a: Self, b: Self) void {
+    w4.line(a.xi(), a.yi(), b.xi(), b.yi());
+}
+
+pub fn oval(pos: Self, width: u32, height: u32) void {
+    w4.oval(pos.xi(), pos.yi(), width, height);
+}
+
+pub fn rect(pos: Self, width: u32, height: u32) void {
+    w4.rect(pos.xi(), pos.yi(), width, height);
 }

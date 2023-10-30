@@ -20,6 +20,9 @@ const P = Particle.new;
 
 // WASM-4
 const w4 = @import("wasm4.zig");
+const text = w4.text;
+const line = w4.line;
+const hline = w4.hline;
 
 // Global state
 var s = State{};
@@ -104,7 +107,7 @@ const State = struct {
             if (state.x > 160) state.x = 160;
             if (state.y > 160) state.y = 160;
 
-            state.m = V(@floatFromInt(state.x), @floatFromInt(state.y)).lerp(state.lm, 0.8);
+            state.m = V(@floatFromInt(state.x), @floatFromInt(state.y));
             state.lm = state.m;
         }
 
@@ -118,10 +121,6 @@ const State = struct {
     fn draw(state: *State) !void {
         // Draw the scene
         try state.scenes[s.disk.si].draw();
-    }
-
-    fn mouseLeftHeld(state: *State) bool {
-        return state.buttons.* & w4.MOUSE_LEFT != 0;
     }
 
     fn mouseLeft(state: *State) bool {
@@ -158,6 +157,34 @@ const State = struct {
 
     fn buttonRight(state: *State) bool {
         return state.gtf & w4.BUTTON_RIGHT != 0;
+    }
+
+    fn mouseLeftHeld(state: *State) bool {
+        return state.buttons.* & w4.MOUSE_LEFT != 0;
+    }
+
+    fn button1Held(state: *State) bool {
+        return state.gamepad.* & w4.BUTTON_1 != 0;
+    }
+
+    fn button2Held(state: *State) bool {
+        return state.gamepad.* & w4.BUTTON_2 != 0;
+    }
+
+    fn buttonUpHeld(state: *State) bool {
+        return state.gamepad.* & w4.BUTTON_UP != 0;
+    }
+
+    fn buttonDownHeld(state: *State) bool {
+        return state.gamepad.* & w4.BUTTON_DOWN != 0;
+    }
+
+    fn buttonRightHeld(state: *State) bool {
+        return state.gamepad.* & w4.BUTTON_RIGHT != 0;
+    }
+
+    fn buttonLeftHeld(state: *State) bool {
+        return state.gamepad.* & w4.BUTTON_LEFT != 0;
     }
 
     fn transition(state: *State, si: u2) void {
@@ -235,21 +262,51 @@ const Intro = struct {
             intro.debugEnabled = !intro.debugEnabled;
         }
 
-        if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 25) {
-            intro.towerPos = intro.towerPos.lerp(s.m, 0.3);
+        if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
+            intro.towerPos = intro.towerPos.lerp(s.m, 0.6);
         } else {
-            intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.3);
+            intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.1);
         }
     }
 
     fn draw(intro: *Intro) !void {
         clear(BLACK);
 
-        intro.bottom();
+        for (0..160) |y| {
+            for (0..160) |x| {
+                if (@mod(x, 3) == 0 and @mod(y, 3) == 0) {
+                    const r = rnd.random().float(f32);
+                    if (r < 0.001) {
+                        color(WHITE);
+                        upx(x + 1, y);
 
-        color(BLACK);
+                        if (r < 0.0001) {
+                            upx(x + 1, y);
+                            upx(x - 1, y);
+                            upx(x, y + 1);
+                            upx(x, y - 1);
+                        }
+                    } else {
+                        color(GRAY);
+                        upx(x, y);
+                    }
+                }
+            }
+        }
 
-        intro.scrollingTitle();
+        color(0x3240);
+        image(zap, 140, 5, zap.flags);
+        image(zap, 5, 5, zap.flags | w4.BLIT_FLIP_Y);
+
+        image(zap, 140, 140, zap.flags | w4.BLIT_ROTATE);
+        image(zap, 5, 140, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
+
+        color(0x4000);
+        image(zap, 139, 5, zap.flags);
+        image(zap, 6, 5, zap.flags | w4.BLIT_FLIP_Y);
+
+        image(zap, 139, 139, zap.flags | w4.BLIT_ROTATE);
+        image(zap, 6, 139, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
 
         const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
 
@@ -269,7 +326,17 @@ const Intro = struct {
         sizeline(V(130, 130), intro.towerPos, 24, np, 0x23, 0x43);
 
         color(0x42);
-        oval(intro.towerPos.sub(V(20, 20)), 40, 40);
+        if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
+            color(0x44);
+        }
+
+        intro.towerPos.sub(V(20, 20)).oval(40, 40);
+
+        if (s.mouseLeftHeld()) {
+            color(0x4444);
+            s.lm.sub(V(19, 19)).oval(38, 38);
+        }
+
         color(0x4001);
 
         var pos = intro.towerPos.sub(catOffset).sub(Vec.set(1));
@@ -279,6 +346,8 @@ const Intro = struct {
         } else {
             img(cat, pos, cat.flags);
         }
+
+        intro.scrollingTitle();
 
         var d: i32 = @intFromFloat(s.m.distance(Vec.center()));
 
@@ -297,7 +366,7 @@ const Intro = struct {
                 color(0x42);
             }
 
-            rect(a.lerp(b, p).sub(offset), size, size);
+            a.lerp(b, p).sub(offset).rect(size, size);
         }
 
         color(0x4001);
@@ -313,10 +382,14 @@ const Intro = struct {
     fn scrollingTitle(_: *Intro) void {
         var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 320));
 
+        var down: i32 = @intCast(@mod(s.frame, 400) / 2);
+
+        down -= 10;
+
         color(GRAY);
-        text("-  -  -  -  -  ", 180 + -offset - 12, 16);
-        text("_  _  _  _  _", 180 + -offset - 13, 14);
-        title("I  N  T  R  O", 180 + -offset - 18, 16, GRAY, PRIMARY);
+        text("- - - - - ", 180 + -offset - 12, down + 6);
+        text("_ _ _ _ _", 180 + -offset - 13, down + 4);
+        title("I N T R O", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
     }
 
     fn debug(intro: *Intro, args: anytype) !void {
@@ -336,17 +409,6 @@ const Intro = struct {
         defer allocator.free(str);
 
         title(str, 20, 130, GRAY, WHITE);
-    }
-
-    fn bottom(_: *Intro) void {
-        color(0x4332);
-
-        image(death, -30, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
-        image(death, 0, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
-        image(death, 30, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
-        image(death, 60, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
-        image(death, 90, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
-        image(death, 120, 99, death.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_X);
     }
 };
 
@@ -442,7 +504,7 @@ const Game = struct {
             const fi: f32 = @floatFromInt(i);
 
             color(0x34);
-            rect(V(10, 30 - fi), 10, 10);
+            V(10, 30 - fi).rect(10, 10);
         }
 
         triangle(T(100, 20, 120, 15, 105, 60), triColor);
@@ -456,56 +518,109 @@ const Game = struct {
 
     fn hud(_: *Game, energy: u4) void {
         // Background of the HUD
-        color(GRAY);
-        w4.rect(0, 0, 160, 20);
-        w4.rect(0, 20, 10, 140);
+        {
+            color(GRAY);
+            w4.rect(0, 0, 160, 20);
+            w4.rect(0, 20, 10, 140);
 
-        pixel(149, 20);
-        pixel(10, 20);
+            pixel(149, 20);
+            pixel(10, 20);
 
-        const ue: u32 = energy;
-        w4.rect(150, 20, 10, 16 + 5 * ue);
-        w4.hline(145, @intCast(29 + 5 * ue), 2);
+            const ue: u32 = energy;
+            w4.rect(150, 20, 10, 16 + 5 * ue);
+            w4.hline(145, @intCast(29 + 5 * ue), 2);
 
-        color(PRIMARY);
-        w4.line(8, 160, 8, 22);
-        w4.line(8, 21, 11, 18);
-        w4.line(12, 18, 148, 18);
+            color(PRIMARY);
+            w4.line(8, 160, 8, 22);
+            w4.line(8, 21, 11, 18);
+            w4.line(12, 18, 148, 18);
 
-        w4.line(151, 23, 151, @intCast(32 + 5 * ue));
+            w4.line(151, 23, 151, @intCast(32 + 5 * ue));
 
-        color(WHITE);
-        w4.oval(144, 23, 20, 13);
+            color(WHITE);
+            w4.oval(144, 23, 20, 13);
 
-        color(0x4321);
-        image(sylt, 3, 3, sylt.flags);
+            color(0x4321);
+            image(sylt, 3, 3, sylt.flags);
+        }
+
+        // Input bar
+        {
+            color(0x34);
+            w4.rect(150, 1, 9, 9);
+
+            {
+                color(0x03);
+                w4.rect(152, 3, 2, 2);
+                w4.rect(155, 3, 2, 2);
+
+                pixel(152, 6);
+                pixel(156, 6);
+
+                pixel(153, 7);
+                pixel(154, 7);
+                pixel(155, 7);
+            }
+
+            inputBarButton("\x80", s.button1Held());
+            inputBarButton("\x81", s.button2Held());
+            inputBarButton("\x84", s.buttonLeftHeld());
+            inputBarButton("\x85", s.buttonRightHeld());
+            inputBarButton("\x86", s.buttonUpHeld());
+            inputBarButton("\x87", s.buttonDownHeld());
+
+            {
+                color(GRAY);
+                pixel(150, 1);
+                pixel(150, 9);
+                pixel(158, 1);
+                pixel(158, 9);
+            }
+            {
+                color(BLACK);
+                pixel(151, 2);
+                pixel(151, 8);
+                pixel(157, 2);
+                pixel(157, 8);
+            }
+        }
 
         // The energy bar
+        {
+            var eo: i32 = 0;
 
-        var eo: i32 = 0;
+            if (energy < 10) {
+                eo += 5;
+            }
 
-        if (energy < 10) {
-            eo += 5;
+            _ = any(energy, 144 + eo, 25, 0, BLACK) catch unreachable;
+
+            if (every(30)) {
+                color(0x1320);
+            } else {
+                color(0x4320);
+            }
+
+            image(zap, 146, 12, zap.flags);
+
+            for (0..energy) |e| {
+                const offset: i32 = @intCast(e);
+
+                color(BLACK);
+                w4.vline(151, 38 + (offset * 5), 2);
+                color(0x3331);
+                w4.rect(152, 37 + (offset * 5), 8, 4);
+            }
+        }
+    }
+
+    fn inputBarButton(str: []const u8, held: bool) void {
+        if (!held) {
+            return;
         }
 
-        _ = any(energy, 144 + eo, 25, 0, BLACK) catch unreachable;
-
-        if (every(30)) {
-            color(0x1320);
-        } else {
-            color(0x4320);
-        }
-
-        image(zap, 141, 12, zap.flags);
-
-        for (0..energy) |e| {
-            const offset: i32 = @intCast(e);
-
-            color(BLACK);
-            w4.vline(151, 38 + (offset * 5), 2);
-            color(0x3331);
-            w4.rect(152, 37 + (offset * 5), 8, 4);
-        }
+        color(0x3431);
+        text(str, 151, 2);
     }
 };
 
@@ -605,7 +720,7 @@ const Over = struct {
         clear(GRAY);
 
         color(WHITE);
-        rect(V(0, 130), 160, 30);
+        V(0, 130).rect(160, 30);
 
         var flags = death.flags;
 
@@ -617,7 +732,7 @@ const Over = struct {
 
         const fg: u16 = if (over.pressFlipped) PRIMARY else WHITE;
 
-        title("PRESS\n{X}to\nINTRO", 104, 105, BLACK, fg);
+        title("PRESS\n \x80to\nINTRO", 104, 105, BLACK, fg);
 
         color(0x20);
         image(fir, 142, 107, fir.flags | w4.BLIT_FLIP_X);
@@ -634,7 +749,7 @@ const Over = struct {
         color(0x4302);
         image(coffee, 38, 134, coffee.flags);
         color(BLACK);
-        rect(V(43, 137), 2, 2);
+        V(43, 137).rect(2, 2);
 
         triangle(T(30, 95, 40, 129, 16, 132), triFir);
 
@@ -840,31 +955,12 @@ const GAME: u2 = 1;
 const OVER: u2 = 2;
 
 // Proxy functions for w4
-fn text(str: []const u8, x: i32, y: i32) void {
-    w4.text(str, x, y);
-}
 
 fn title(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
     color(bg);
     text(str, x, y);
     color(fg);
     text(str, x + 1, y + 1);
-}
-
-fn line(a: Vec, b: Vec) void {
-    w4.line(a.xi(), a.yi(), b.xi(), b.yi());
-}
-
-fn oval(pos: Vec, width: u32, height: u32) void {
-    w4.oval(pos.xi(), pos.yi(), width, height);
-}
-
-fn rect(pos: Vec, width: u32, height: u32) void {
-    w4.rect(pos.xi(), pos.yi(), width, height);
-}
-
-fn blit(sprite: [*]const u8, x: i32, y: i32, width: u32, height: u32, flags: u32) void {
-    w4.blit(sprite, x, y, width, height, flags);
 }
 
 fn color(c: u16) void {
@@ -883,6 +979,10 @@ fn vpx(v: Vec) void {
 
 fn ppx(p: Particle) void {
     vpx(p.position);
+}
+
+fn upx(x: usize, y: usize) void {
+    pixel(@intCast(x), @intCast(y));
 }
 
 fn pixel(x: i32, y: i32) void {
@@ -963,7 +1063,7 @@ fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
     const offset = Vec.set(@divFloor(fsize, 2));
 
     for (points) |p| {
-        oval(a.lerp(b, p).sub(offset), dotSize, dotSize);
+        a.lerp(b, p).sub(offset).rect(dotSize, dotSize);
     }
 }
 
@@ -979,7 +1079,7 @@ fn sizeline(a: Vec, b: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16)
             color(c1);
         }
 
-        rect(a.lerp(b, p).sub(offset), size, size);
+        a.lerp(b, p).sub(offset).rect(size, size);
     }
 
     color(0x4444);
@@ -1043,11 +1143,11 @@ const Sprite = struct {
 };
 
 fn image(m: Sprite, x: i32, y: i32, flags: u32) void {
-    blit(m.sprite, x, y, m.width, m.height, flags);
+    w4.blit(m.sprite, x, y, m.width, m.height, flags);
 }
 
 fn img(m: Sprite, v: Vec, flags: u32) void {
-    blit(m.sprite, v.xi(), v.yi(), m.width, m.height, flags);
+    w4.blit(m.sprite, v.xi(), v.yi(), m.width, m.height, flags);
 }
 
 pub const death = Sprite{
