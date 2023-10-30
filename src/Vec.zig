@@ -11,6 +11,11 @@ pub fn new(vx: f32, vy: f32) Self {
     return .{ .data = [2]f32{ vx, vy } };
 }
 
+/// Construct new triangle.
+pub fn tri(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) [3]Self {
+    return .{ Self.new(x1, y1), Self.new(x2, y2), Self.new(x3, y3) };
+}
+
 pub fn x(self: Self) f32 {
     return self.data[0];
 }

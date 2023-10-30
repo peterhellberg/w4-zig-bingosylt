@@ -12,11 +12,7 @@ var rnd = std.rand.DefaultPrng.init(0);
 // 2D Vector implementation
 const Vec = @import("Vec.zig");
 const V = Vec.new;
-
-// TODO: Move this somewhere better
-fn T(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) [3]Vec {
-    return .{ V(x1, y1), V(x2, y2), V(x3, y3) };
-}
+const T = Vec.tri;
 
 // Particle implementation
 const Particle = @import("Particle.zig");
@@ -801,7 +797,9 @@ fn centroid(t: [3]Vec) Vec {
     );
 }
 
-fn triangle(t: [3]Vec, colorFn: *const fn (p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16) void {
+const ColorFn = fn (p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16;
+
+fn triangle(t: [3]Vec, colorFn: *const ColorFn) void {
     const area = Vec.cross(t[0], t[1], t[2]);
     const center = centroid(t);
 
