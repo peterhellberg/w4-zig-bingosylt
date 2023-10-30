@@ -24,8 +24,18 @@ const w4 = @import("wasm4.zig");
 // Global state
 var s = State{};
 
+const Disk = struct {
+    si: u2,
+    energy: u4,
+};
+
 const State = struct {
-    si: u2 = 0, // Scene index
+    disk: Disk = .{
+        .si = 0,
+        .energy = 0,
+    },
+    // si: u2 = 0, // Scene index
+
     x: i32 = 80, // Mouse X
     y: i32 = 80, // Mouse Y
 
@@ -38,7 +48,7 @@ const State = struct {
     life: i8 = 3, // Life
     score: u8 = 0, // Some sort of game score
     frame: u32 = 0,
-    energy: u5 = 31,
+    // energy: u4 = 0,
 
     // The inputs
     buttons: *const u8 = w4.MOUSE_BUTTONS,
@@ -67,12 +77,14 @@ const State = struct {
         s.transition(s.load(OVER));
     }
 
-    fn load(_: *State, default: u2) u2 {
-        var si: u2 = default;
+    fn load(state: *State, defaultScene: u2) u2 {
+        var d: Disk = .{ .si = defaultScene, .energy = 0 };
 
-        _ = w4.diskr(@ptrCast(&si), @sizeOf(@TypeOf(si)));
+        _ = w4.diskr(@ptrCast(&d), @sizeOf(@TypeOf(d)));
 
-        return si;
+        state.disk = d;
+
+        return d.si;
     }
 
     fn update(state: *State) !void {
@@ -101,12 +113,12 @@ const State = struct {
         state.frame +%= 1;
 
         // Update the scene specific state
-        try state.scenes[state.si].update();
+        try state.scenes[state.disk.si].update();
     }
 
     fn draw(state: *State) !void {
         // Draw the scene
-        try state.scenes[s.si].draw();
+        try state.scenes[s.disk.si].draw();
     }
 
     fn mouseLeft(state: *State) bool {
@@ -145,20 +157,30 @@ const State = struct {
         return state.gtf & w4.BUTTON_RIGHT != 0;
     }
 
-    fn transition(state: *State, sceneIndex: u2) void {
-        w4.tracef("-== TRANSITION TO SCENE: [%d] ==-", @as(u8, sceneIndex));
+    fn transition(state: *State, si: u2) void {
+        transitionTrace(switch (si) {
+            INTRO => "INTRO",
+            GAME => "GAME",
+            OVER => "OVER",
+            else => "UNKNOWN",
+        });
 
-        _ = try state.scenes[sceneIndex].enter();
+        _ = try state.scenes[si].enter();
 
-        state.si = sceneIndex;
+        state.disk.si = si;
+
         state.save();
     }
 
-    fn save(state: *State) void {
-        // Save the scene index to disk
-        var wrote = w4.diskw(@ptrCast(&state.si), @sizeOf(@TypeOf(state.si)));
+    fn transitionTrace(arg: anytype) void {
+        const str = fmt.allocPrint(allocator, "-== TRANSITION TO SCENE: {s} ==-", .{arg}) catch "";
+        defer allocator.free(str);
+        trace(str);
+    }
 
-        w4.tracef("WROTE %d", wrote);
+    fn save(state: *State) void {
+        // Save the state disk into persistent storage
+        _ = w4.diskw(@ptrCast(&state.disk), @sizeOf(@TypeOf(state.disk)));
     }
 };
 
@@ -383,14 +405,16 @@ const Game = struct {
         }
 
         if (s.buttonUp()) {
-            s.energy +|= 1;
+            s.disk.energy +|= 1;
+            w4.tracef("energy %d", @as(i8, s.disk.energy));
+            s.save();
         }
 
         if (s.buttonDown()) {
-            s.energy -|= 1;
+            s.disk.energy -|= 1;
+            w4.tracef("energy %d", @as(i8, s.disk.energy));
+            s.save();
         }
-
-        w4.tracef("energy %d", @as(i8, s.energy));
 
         if (s.life == 0) {
             game.died.play(2);
@@ -400,9 +424,6 @@ const Game = struct {
 
     fn draw(game: *Game) !void {
         clear(BLACK);
-
-        color(0x31);
-        text("GAME", 8, 6);
 
         var i: i32 = 0;
 
@@ -419,37 +440,60 @@ const Game = struct {
         triangle(T(80, 90, 100, 150, 10, 150), triXOR);
         triangle(T(80, 90, 145, 150, 100, 150), triGRAY);
 
-        game.hud(s.energy);
+        game.hud(s.disk.energy);
     }
 
-    fn hud(_: *Game, energy: u5) void {
+    fn hud(_: *Game, energy: u4) void {
         // Background of the HUD
         color(GRAY);
         w4.rect(0, 0, 160, 20);
         w4.rect(0, 20, 10, 140);
-        w4.rect(150, 20, 10, 140);
 
         pixel(149, 20);
         pixel(10, 20);
+
+        const ue: u32 = energy;
+        w4.rect(150, 20, 10, 16 + 5 * ue);
+        w4.hline(145, @intCast(29 + 5 * ue), 2);
 
         color(PRIMARY);
         w4.line(8, 160, 8, 22);
         w4.line(8, 21, 11, 18);
         w4.line(12, 18, 148, 18);
-        w4.line(149, 19, 151, 21);
-        w4.line(151, 22, 151, 160);
+
+        w4.line(151, 23, 151, @intCast(32 + 5 * ue));
+
+        color(WHITE);
+        w4.oval(144, 23, 20, 13);
+
+        color(0x31);
+        text("", 8, 6);
 
         // The energy bar
-        color(0x4320);
-        image(zap, 148, 18, zap.flags);
+
+        var eo: i32 = 0;
+
+        if (energy < 10) {
+            eo += 5;
+        }
+
+        _ = any(energy, 144 + eo, 25, 0, BLACK) catch unreachable;
+
+        if (every(30)) {
+            color(0x1320);
+        } else {
+            color(0x4320);
+        }
+
+        image(zap, 141, 12, zap.flags);
 
         for (0..energy) |e| {
             const offset: i32 = @intCast(e);
 
-            color(0x3332);
-            w4.oval(154, 160 - (offset * 4), 3, 3);
-            color(0x4440);
-            w4.oval(155, 160 - (offset * 4), 3, 3);
+            color(BLACK);
+            w4.vline(151, 38 + (offset * 5), 2);
+            color(0x3331);
+            w4.rect(152, 37 + (offset * 5), 8, 4);
         }
     }
 };
@@ -972,12 +1016,19 @@ fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
     const str = try fmt.allocPrint(allocator, "{any}", .{arg});
     defer allocator.free(str);
 
+    title(str, x, y, bg, fg);
+}
+
+fn anyTrace(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
+    const str = try fmt.allocPrint(allocator, "{any}", .{arg});
+    defer allocator.free(str);
+
     trace(str);
     title(str, x, y, bg, fg);
 }
 
 fn dump(arg: anytype, x: i32, y: i32) void {
-    _ = any(arg, x, y, BLACK, PRIMARY) catch unreachable;
+    _ = anyTrace(arg, x, y, BLACK, PRIMARY) catch unreachable;
 }
 
 const Sprite = struct {
@@ -1016,7 +1067,14 @@ pub const zap = Sprite{
     .sprite = ([64]u8{ 0x00, 0x00, 0x2a, 0x00, 0x00, 0x00, 0xbe, 0x00, 0x00, 0x02, 0xfe, 0x00, 0x00, 0x0b, 0xf8, 0x00, 0x00, 0x2f, 0xf8, 0x00, 0x00, 0xbf, 0xea, 0x00, 0x02, 0xff, 0xfe, 0x00, 0x02, 0xff, 0xfe, 0x00, 0x02, 0xff, 0xf8, 0x00, 0x02, 0xaf, 0xe0, 0x00, 0x00, 0xbf, 0x80, 0x00, 0x02, 0xfe, 0x00, 0x00, 0x02, 0xf8, 0x00, 0x00, 0x0b, 0xe0, 0x00, 0x00, 0x0b, 0x80, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00 })[0..],
     .width = 16,
     .height = 16,
-    .flags = 1, // BLIT_2BPP
+    .flags = w4.BLIT_2BPP,
+};
+
+pub const sylt = Sprite{
+    .sprite = ([140]u8{ 0x55, 0x55, 0x55, 0x55, 0x54, 0x01, 0x55, 0x55, 0x55, 0x55, 0x54, 0x00, 0x55, 0x55, 0x54, 0x01, 0x55, 0x45, 0x55, 0x41, 0x54, 0x28, 0x55, 0x55, 0x56, 0x85, 0x55, 0x05, 0x55, 0x41, 0x54, 0x16, 0x50, 0x54, 0x15, 0x05, 0x50, 0x00, 0x15, 0x41, 0x54, 0x05, 0x50, 0x54, 0x15, 0x05, 0x50, 0x00, 0x95, 0x49, 0x56, 0x01, 0x58, 0x50, 0x95, 0x05, 0x58, 0x2a, 0x55, 0x49, 0x55, 0x80, 0x54, 0x52, 0x55, 0x05, 0x54, 0x15, 0x55, 0x55, 0x51, 0x60, 0x54, 0x01, 0x54, 0x25, 0x54, 0x15, 0x55, 0x55, 0x40, 0x40, 0x54, 0x09, 0x54, 0x15, 0x54, 0x14, 0x54, 0x05, 0x60, 0x02, 0x54, 0x05, 0x56, 0x00, 0x54, 0x00, 0x54, 0x05, 0x5a, 0xa9, 0x54, 0x25, 0x55, 0xaa, 0x56, 0xaa, 0x56, 0xa5, 0x55, 0x55, 0x40, 0x95, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x42, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x69, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 })[0..],
+    .width = 40,
+    .height = 14,
+    .flags = w4.BLIT_2BPP,
 };
 
 //
