@@ -188,7 +188,7 @@ const State = struct {
     }
 
     fn transition(state: *State, si: u2) void {
-        log("🚚 Scene  | {s}", .{switch (si) {
+        log("🎬 Scene  = {s}\n", .{switch (si) {
             INTRO => "INTRO",
             GAME => "GAME",
             OVER => "OVER",
@@ -479,9 +479,10 @@ const Game = struct {
 
         if (shouldLog) {
             log(
-                \\💚 Health | {d}
-                \\🏅 Points | {d}
-                \\⚡ Energy | {d}
+                \\💚 Health = {d}
+                \\🏅 Points = {d}
+                \\⚡ Energy = {d}
+                \\
             , .{
                 s.life,
                 s.score,
