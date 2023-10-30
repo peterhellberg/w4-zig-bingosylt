@@ -24,47 +24,17 @@ const text = w4.text;
 const line = w4.line;
 const hline = w4.hline;
 
-// Global state
-var s = State{};
-
+// Disk represents what is read and written
+// from the persistent storage by the game.
 const Disk = struct {
     si: u2,
     energy: u4,
 };
 
+// Global state
+var s = State{};
+
 const State = struct {
-    disk: Disk = .{
-        .si = 0,
-        .energy = 0,
-    },
-
-    frame: u32 = 0,
-
-    x: i32 = 80, // Mouse X
-    y: i32 = 80, // Mouse Y
-
-    blf: u8 = 0, // Buttons pressed last frame
-    btf: u8 = 0, // Buttons pressed this frame
-
-    glf: u8 = 0, // Gamepad pressed last frame
-    gtf: u8 = 0, // Gamepad pressed this frame
-
-    life: i8 = 3, // Life
-    score: u8 = 0, // Some sort of game score
-
-    // The inputs
-    buttons: *const u8 = w4.MOUSE_BUTTONS,
-    gamepad: *const u8 = w4.GAMEPAD1,
-
-    m: Vec = Vec.center(),
-    lm: Vec = Vec.center(),
-
-    scenes: [3]Scene = .{
-        .{ .intro = Intro{} },
-        .{ .game = Game{} },
-        .{ .over = Over{} },
-    },
-
     fn start(_: *State) void {
         w4.trace(
             \\    ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
@@ -206,42 +176,41 @@ const State = struct {
         // Save the state disk into persistent storage
         _ = w4.diskw(@ptrCast(&state.disk), @sizeOf(@TypeOf(state.disk)));
     }
+
+    disk: Disk = .{
+        .si = 0,
+        .energy = 0,
+    },
+
+    frame: u32 = 0,
+
+    x: i32 = 80, // Mouse X
+    y: i32 = 80, // Mouse Y
+
+    blf: u8 = 0, // Buttons pressed last frame
+    btf: u8 = 0, // Buttons pressed this frame
+
+    glf: u8 = 0, // Gamepad pressed last frame
+    gtf: u8 = 0, // Gamepad pressed this frame
+
+    life: i8 = 3, // Life
+    score: u8 = 0, // Some sort of game score
+
+    // The inputs
+    buttons: *const u8 = w4.MOUSE_BUTTONS,
+    gamepad: *const u8 = w4.GAMEPAD1,
+
+    m: Vec = Vec.center(),
+    lm: Vec = Vec.center(),
+
+    scenes: [3]Scene = .{
+        .{ .intro = Intro{} },
+        .{ .game = Game{} },
+        .{ .over = Over{} },
+    },
 };
 
 const Intro = struct {
-    debugEnabled: bool = false,
-    catLastPos: Vec = Vec.zero(),
-    towerPos: Vec = Vec.center(),
-
-    // Tangerine Noir
-    // https://lospec.com/palette-list/tangerine-noir
-    tangerineNoir: [4]u32 = .{
-        0xfcfcfc, // White
-        0x393541, // Gray
-        0x191a1f, // Black
-        0xee964b, // Tangerine
-    },
-
-    // Repeating version of Dream Haze 8
-    // https://lospec.com/palette-list/dream-haze-8
-    repeating: [15]u32 = .{
-        0x3c42c4,
-        0x6e51c8,
-        0xa065cd,
-        0xce79d2,
-        0xd68fb8,
-        0xdda2a3,
-        0xeac4ae,
-        0xf4dfbe,
-        0xf4dfbe,
-        0xeac4ae,
-        0xdda2a3,
-        0xd68fb8,
-        0xce79d2,
-        0xa065cd,
-        0x6e51c8,
-    },
-
     fn enter(intro: *Intro) !void {
         w4.PALETTE.* = intro.tangerineNoir;
     }
@@ -410,42 +379,42 @@ const Intro = struct {
 
         title(str, 20, 130, GRAY, WHITE);
     }
-};
 
-const Game = struct {
+    debugEnabled: bool = false,
+    catLastPos: Vec = Vec.zero(),
+    towerPos: Vec = Vec.center(),
+
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
-    palette: [4]u32 = .{
+    tangerineNoir: [4]u32 = .{
         0xfcfcfc, // White
         0x393541, // Gray
         0x191a1f, // Black
         0xee964b, // Tangerine
     },
 
-    startup: Tone = Tone{
-        .freq1 = 240,
-        .freq2 = 680,
-        .attack = 0,
-        .decay = 35,
-        .sustain = 51,
-        .release = 117,
-        .peak = 26,
-        .volume = 6,
-        .mode = 0,
+    // Repeating version of Dream Haze 8
+    // https://lospec.com/palette-list/dream-haze-8
+    repeating: [15]u32 = .{
+        0x3c42c4,
+        0x6e51c8,
+        0xa065cd,
+        0xce79d2,
+        0xd68fb8,
+        0xdda2a3,
+        0xeac4ae,
+        0xf4dfbe,
+        0xf4dfbe,
+        0xeac4ae,
+        0xdda2a3,
+        0xd68fb8,
+        0xce79d2,
+        0xa065cd,
+        0x6e51c8,
     },
+};
 
-    died: Tone = Tone{
-        .freq1 = 90,
-        .freq2 = 40,
-        .attack = 10,
-        .decay = 0,
-        .sustain = 15,
-        .release = 25,
-        .peak = 0,
-        .volume = 90,
-        .mode = 1,
-    },
-
+const Game = struct {
     fn enter(game: *Game) !void {
         w4.PALETTE.* = game.palette;
 
@@ -624,6 +593,39 @@ const Game = struct {
         color(0x3431);
         text(str, 151, 2);
     }
+
+    // Tangerine Noir
+    // https://lospec.com/palette-list/tangerine-noir
+    palette: [4]u32 = .{
+        0xfcfcfc, // White
+        0x393541, // Gray
+        0x191a1f, // Black
+        0xee964b, // Tangerine
+    },
+
+    startup: Tone = Tone{
+        .freq1 = 240,
+        .freq2 = 680,
+        .attack = 0,
+        .decay = 35,
+        .sustain = 51,
+        .release = 117,
+        .peak = 26,
+        .volume = 6,
+        .mode = 0,
+    },
+
+    died: Tone = Tone{
+        .freq1 = 90,
+        .freq2 = 40,
+        .attack = 10,
+        .decay = 0,
+        .sustain = 15,
+        .release = 25,
+        .peak = 0,
+        .volume = 90,
+        .mode = 1,
+    },
 };
 
 fn triColor(p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16 {
@@ -674,8 +676,6 @@ const Over = struct {
 
     snowParticlesOver: [64]Particle = [_]Particle{.{}} ** 64,
     snowParticlesBehind: [128]Particle = [_]Particle{.{}} ** 128,
-
-    //snowParticles: [1]Particle = [_]Particle{.{}} ** 1,
 
     deathFlipped: bool = false,
     pressFlipped: bool = false,
