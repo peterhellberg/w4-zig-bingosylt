@@ -63,7 +63,7 @@ const State = struct {
     },
 
     fn start(_: *State) void {
-        trace(
+        w4.trace(
             \\    ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
             \\   |   __ |_     _|    |  |     __|       |     __|   |   |     ||_     _|
             \\  /|   __ <_|   |_|       |    |  |   -   |__     |\     /|       || #9|\
@@ -120,6 +120,10 @@ const State = struct {
         try state.scenes[s.disk.si].draw();
     }
 
+    fn mouseLeftHeld(state: *State) bool {
+        return state.buttons.* & w4.MOUSE_LEFT != 0;
+    }
+
     fn mouseLeft(state: *State) bool {
         return state.btf & w4.MOUSE_LEFT != 0;
     }
@@ -157,7 +161,7 @@ const State = struct {
     }
 
     fn transition(state: *State, si: u2) void {
-        log("🚚 {s}", .{switch (si) {
+        log("🚚 Scene  | {s}", .{switch (si) {
             INTRO => "INTRO",
             GAME => "GAME",
             OVER => "OVER",
@@ -180,7 +184,7 @@ const State = struct {
 const Intro = struct {
     debugEnabled: bool = false,
     catLastPos: Vec = Vec.zero(),
-    towerLastPos: Vec = Vec.center(),
+    towerPos: Vec = Vec.center(),
 
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
@@ -216,10 +220,6 @@ const Intro = struct {
     }
 
     fn update(intro: *Intro) !void {
-        if (s.button2()) {
-            intro.debugEnabled = !intro.debugEnabled;
-        }
-
         w4.PALETTE.*[3] = intro.repeating[
             @mod(
                 @divFloor(s.frame, 8),
@@ -229,6 +229,16 @@ const Intro = struct {
 
         if (s.button1()) {
             s.transition(GAME);
+        }
+
+        if (s.button2()) {
+            intro.debugEnabled = !intro.debugEnabled;
+        }
+
+        if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 25) {
+            intro.towerPos = intro.towerPos.lerp(s.m, 0.3);
+        } else {
+            intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.3);
         }
     }
 
@@ -253,18 +263,16 @@ const Intro = struct {
 
         intro.catline(V(-20, 60), V(180, 80), 25, np, t / 500, catOffset);
 
-        const mv = s.m;
+        sizeline(V(30, 130), intro.towerPos, 24, np, 0x23, 0x43);
+        sizeline(V(130, 30), intro.towerPos, 24, np, 0x23, 0x43);
+        sizeline(V(30, 30), intro.towerPos, 24, np, 0x23, 0x43);
+        sizeline(V(130, 130), intro.towerPos, 24, np, 0x23, 0x43);
 
-        sizeline(V(30, 130), mv, 24, np, 0x23, 0x43);
-        sizeline(V(130, 30), mv, 24, np, 0x23, 0x43);
-        sizeline(V(30, 30), mv, 24, np, 0x23, 0x43);
-        sizeline(V(130, 130), mv, 24, np, 0x23, 0x43);
-
-        color(0x43);
-        oval(mv.sub(V(20, 20)), 40, 40);
+        color(0x42);
+        oval(intro.towerPos.sub(V(20, 20)), 40, 40);
         color(0x4001);
 
-        var pos = mv.sub(catOffset).sub(Vec.set(1));
+        var pos = intro.towerPos.sub(catOffset).sub(Vec.set(1));
 
         if (pos.x() < 80) {
             img(cat, pos, cat.flags | w4.BLIT_FLIP_X);
@@ -327,7 +335,6 @@ const Intro = struct {
         , args);
         defer allocator.free(str);
 
-        // trace(str);
         title(str, 20, 130, GRAY, WHITE);
     }
 
@@ -388,26 +395,36 @@ const Game = struct {
     }
 
     fn update(game: *Game) !void {
+        var shouldLog = false;
+
         if (s.button1()) {
             s.life -= 1;
             s.score += 1;
-
-            log("💚 {d}\n🏅 {d}", .{
-                s.life,
-                s.score,
-            });
+            shouldLog = true;
         }
 
         if (s.buttonUp()) {
             s.disk.energy +|= 1;
-            log("⚡ {d}", .{@as(i8, s.disk.energy)});
             s.save();
+            shouldLog = true;
         }
 
         if (s.buttonDown()) {
             s.disk.energy -|= 1;
-            log("⚡ {d}", .{@as(i8, s.disk.energy)});
             s.save();
+            shouldLog = true;
+        }
+
+        if (shouldLog) {
+            log(
+                \\💚 Health | {d}
+                \\🏅 Points | {d}
+                \\⚡ Energy | {d}
+            , .{
+                s.life,
+                s.score,
+                s.disk.energy,
+            });
         }
 
         if (s.life == 0) {
@@ -986,10 +1003,6 @@ fn sizeline(a: Vec, b: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16)
     }
 }
 
-fn trace(x: []const u8) void {
-    w4.trace(x);
-}
-
 fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
     const str = try fmt.allocPrint(allocator, "{any}", .{arg});
     defer allocator.free(str);
@@ -1016,7 +1029,7 @@ export fn update() void {
 pub fn log(comptime format: []const u8, args: anytype) void {
     const str = fmt.allocPrint(allocator, format, args) catch return;
     defer allocator.free(str);
-    trace(str);
+    w4.trace(str);
 }
 
 // Sprites used in the game
