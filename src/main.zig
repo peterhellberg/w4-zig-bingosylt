@@ -540,7 +540,10 @@ const Game = struct {
             color(WHITE);
             w4.oval(144, 23, 20, 13);
 
-            color(0x4321);
+            color(0x0003);
+            image(sylt, 4, 5, sylt.flags);
+
+            color(0x4301);
             image(sylt, 3, 3, sylt.flags);
         }
 
@@ -553,22 +556,20 @@ const Game = struct {
                 color(0x03);
                 w4.rect(152, 3, 2, 2);
                 w4.rect(155, 3, 2, 2);
-
                 pixel(152, 6);
                 pixel(156, 6);
-
                 pixel(153, 7);
                 pixel(154, 7);
                 pixel(155, 7);
             }
-
-            inputBarButton("\x80", s.button1Held());
-            inputBarButton("\x81", s.button2Held());
-            inputBarButton("\x84", s.buttonLeftHeld());
-            inputBarButton("\x85", s.buttonRightHeld());
-            inputBarButton("\x86", s.buttonUpHeld());
-            inputBarButton("\x87", s.buttonDownHeld());
-
+            {
+                inputBarButton("\x80", s.button1Held());
+                inputBarButton("\x81", s.button2Held());
+                inputBarButton("\x84", s.buttonLeftHeld());
+                inputBarButton("\x85", s.buttonRightHeld());
+                inputBarButton("\x86", s.buttonUpHeld());
+                inputBarButton("\x87", s.buttonDownHeld());
+            }
             {
                 color(GRAY);
                 pixel(150, 1);
