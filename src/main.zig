@@ -13,6 +13,11 @@ var rnd = std.rand.DefaultPrng.init(0);
 const Vec = @import("Vec.zig");
 const V = Vec.new;
 
+// TODO: Move this somewhere better
+fn T(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) [3]Vec {
+    return .{ V(x1, y1), V(x2, y2), V(x3, y3) };
+}
+
 // Particle implementation
 const Particle = @import("Particle.zig");
 const P = Particle.new;
@@ -25,8 +30,8 @@ var s = State{};
 
 const State = struct {
     si: u2 = 0, // Scene index
-    x: i32 = 0, // Mouse X
-    y: i32 = 0, // Mouse Y
+    x: i32 = 80, // Mouse X
+    y: i32 = 80, // Mouse Y
 
     blf: u8 = 0, // Buttons pressed last frame
     btf: u8 = 0, // Buttons pressed this frame
@@ -42,7 +47,8 @@ const State = struct {
     buttons: *const u8 = w4.MOUSE_BUTTONS,
     gamepad: *const u8 = w4.GAMEPAD1,
 
-    m: Vec = Vec.zero(),
+    m: Vec = Vec.center(),
+    lm: Vec = Vec.center(),
 
     scenes: [3]Scene = .{
         .{ .intro = Intro{} },
@@ -90,7 +96,8 @@ const State = struct {
             if (state.x > 160) state.x = 160;
             if (state.y > 160) state.y = 160;
 
-            state.m = V(@floatFromInt(state.x), @floatFromInt(state.y));
+            state.m = V(@floatFromInt(state.x), @floatFromInt(state.y)).lerp(state.lm, 0.8);
+            state.lm = state.m;
         }
 
         // Increment the frame counter
@@ -145,6 +152,7 @@ const State = struct {
 const Intro = struct {
     debugEnabled: bool = false,
     catLastPos: Vec = Vec.zero(),
+    towerLastPos: Vec = Vec.center(),
 
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
@@ -205,27 +213,30 @@ const Intro = struct {
 
         intro.scrollingTitle();
 
-        const mv = V(@floatFromInt(s.x), @floatFromInt(s.y));
         const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
 
         // White cat
         var w: f32 = @floatFromInt(cat.width);
         var h: f32 = @floatFromInt(cat.height);
-        var offset = V(@divFloor(w, 4), @divFloor(h, 2));
-        var fframe: f32 = @floatFromInt(s.frame);
-        var t: f32 = @abs(@mod(@divFloor(fframe, 1), 800) - 400 / 400);
-        intro.catline(V(-10, 60), V(170, 80), 25, np, t, offset);
+        var catOffset = V(@divFloor(w, 4), @divFloor(h, 2));
 
-        sizeline(V(30, 30), mv, 30, np, 0x23, 0x43);
-        sizeline(V(30, 130), mv, 30, np, 0x23, 0x43);
-        sizeline(V(130, 30), mv, 30, np, 0x23, 0x43);
-        sizeline(V(130, 130), mv, 30, np, 0x23, 0x43);
+        var fframe: f32 = @floatFromInt(s.frame);
+        var t: f32 = @abs(@mod(fframe, 1000) - 500);
+
+        intro.catline(V(-20, 60), V(180, 80), 25, np, t / 500, catOffset);
+
+        const mv = s.m;
+
+        sizeline(V(30, 130), mv, 24, np, 0x23, 0x43);
+        sizeline(V(130, 30), mv, 24, np, 0x23, 0x43);
+        sizeline(V(30, 30), mv, 24, np, 0x23, 0x43);
+        sizeline(V(130, 130), mv, 24, np, 0x23, 0x43);
 
         color(0x43);
-        oval(s.m.sub(V(10, 10)), 20, 20);
+        oval(mv.sub(V(20, 20)), 40, 40);
         color(0x4001);
 
-        var pos = s.m.sub(offset).sub(Vec.set(1));
+        var pos = mv.sub(catOffset).sub(Vec.set(1));
 
         if (pos.x() < 80) {
             img(cat, pos, cat.flags | w4.BLIT_FLIP_X);
@@ -239,9 +250,9 @@ const Intro = struct {
     }
 
     fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, t: f32, catOffset: Vec) void {
+        const catPos = a.lerp(b, t).sub(catOffset);
         const fsize: f32 = @floatFromInt(size);
         const offset = Vec.set(@divFloor(fsize, 2));
-        const catPos = a.lerp(b, t).sub(catOffset);
 
         for (0.., points) |i, p| {
             if (@mod(i, 2) == 0) {
@@ -259,6 +270,8 @@ const Intro = struct {
         } else {
             img(cat, catPos, cat.flags);
         }
+
+        //dump(catPos.data, 10, 10);
 
         intro.catLastPos = catPos;
     }
@@ -376,8 +389,11 @@ const Game = struct {
             rect(V(10, 30 - fi), 10, 10);
         }
 
-        triangle(.{ V(80, 90), V(100, 150), V(10, 150) }, WHITE);
-        triangle(.{ V(80, 90), V(155, 150), V(100, 150) }, GRAY);
+        triangle(T(80, 30, 100, 15, 120, 40), PRIMARY);
+        triangle(T(80, 30, 120, 40, 90, 50), PRIMARY);
+
+        triangle(T(80, 90, 100, 150, 10, 150), WHITE);
+        triangle(T(80, 90, 155, 150, 100, 150), GRAY);
     }
 };
 
@@ -729,6 +745,13 @@ fn pixel(x: i32, y: i32) void {
     w4.FRAMEBUFFER[idx] = (c << shift) | (w4.FRAMEBUFFER[idx] & ~mask);
 }
 
+fn centroid(t: [3]Vec) Vec {
+    return V(
+        (t[0].x() + t[1].x() + t[2].x()) / 3,
+        (t[0].y() + t[1].y() + t[2].y()) / 3,
+    );
+}
+
 fn triangle(t: [3]Vec, fg: u16) void {
     const xMin: usize = @intFromFloat(@min(@min(t[0].x(), t[1].x()), t[2].x()));
     const yMin: usize = @intFromFloat(@min(@min(t[0].y(), t[1].y()), t[2].y()));
@@ -737,11 +760,12 @@ fn triangle(t: [3]Vec, fg: u16) void {
 
     color(fg);
 
-    const bias0: f32 = if (isTopLeft(t[1], t[2])) 0 else -1;
-    const bias1: f32 = if (isTopLeft(t[2], t[0])) 0 else -1;
-    const bias2: f32 = if (isTopLeft(t[0], t[1])) 0 else -1;
+    const bias0: f32 = if (isTopLeft(t[1], t[2])) 0 else -0.0001;
+    const bias1: f32 = if (isTopLeft(t[2], t[0])) 0 else -0.0001;
+    const bias2: f32 = if (isTopLeft(t[0], t[1])) 0 else -0.0001;
 
     const area = Vec.cross(t[0], t[1], t[2]);
+    const c = centroid(t);
 
     for (yMin..yMax) |y| {
         for (xMin..xMax) |x| {
@@ -768,6 +792,21 @@ fn triangle(t: [3]Vec, fg: u16) void {
 
                 if (alpha > 0.7 or gamma < 0.1) {
                     //color(WHITE);
+                }
+
+                const d = p.distance(c);
+
+                if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 20))) / 32 - 16) and @mod(x, 1) == 0 and @mod(y, 2) == 1) {
+                    color(BLACK);
+                    if (d < 11 and @mod(s.frame, 24) < 12) {
+                        color(PRIMARY);
+                    }
+
+                    if (@sin(@as(f32, @floatFromInt(x ^ y))) < 0) {
+                        color(WHITE);
+                    }
+                } else {
+                    color(GRAY);
                 }
 
                 pixel(@intCast(x), @intCast(y));
@@ -811,20 +850,20 @@ fn sizeline(a: Vec, b: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16)
     color(0x4444);
 
     if (a.eql(V(30, 30))) {
-        dotline(a, b.offset(-35, -35), 3, points);
+        dotline(a, b.offset(-25, -25), 3, points);
     }
 
     if (a.eql(V(130, 30))) {
-        dotline(a, b.offset(35, -35), 3, points);
+        dotline(a, b.offset(25, -25), 3, points);
     }
 
     if (a.eql(V(30, 130))) {
-        dotline(a, b.offset(-35, 35), 3, points);
+        dotline(a, b.offset(-25, 25), 3, points);
     }
 
     if (a.eql(V(130, 130))) {
         if (b.x() < 95 or b.y() < 96) {
-            dotline(a, b.offset(35, 35), 3, points);
+            dotline(a, b.offset(25, 25), 3, points);
         }
     }
 }
@@ -847,6 +886,10 @@ fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
 
     trace(str);
     title(str, x, y, bg, fg);
+}
+
+fn dump(arg: anytype, x: i32, y: i32) void {
+    _ = any(arg, x, y, BLACK, PRIMARY) catch unreachable;
 }
 
 const Sprite = struct {
