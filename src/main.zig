@@ -400,9 +400,8 @@ fn triColor(p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16 {
     _ = gamma;
 
     const d = p.distance(c);
-
-    const x: u16 = @intFromFloat(p.x());
-    const y: u16 = @intFromFloat(p.y());
+    const x = p.xu();
+    const y = p.yu();
 
     if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 96))) / 32 - 16) and @mod(x, 2) == 0 and @mod(y, 2) == 1) {
         if (d < 11 and @mod(s.frame, 24) < 12) {
@@ -698,8 +697,8 @@ fn triPRIMARY(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
 }
 
 fn triXOR(p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
-    const x: u16 = @intFromFloat(p.x());
-    const y: u16 = @intFromFloat(p.y());
+    const x = p.xu();
+    const y = p.yu();
 
     return @mod(x ^ y, 32) / 4;
 }
@@ -722,20 +721,15 @@ fn title(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
 }
 
 fn line(a: Vec, b: Vec) void {
-    w4.line(
-        @intFromFloat(a.x()),
-        @intFromFloat(a.y()),
-        @intFromFloat(b.x()),
-        @intFromFloat(b.y()),
-    );
+    w4.line(a.xi(), a.yi(), b.xi(), b.yi());
 }
 
 fn oval(pos: Vec, width: u32, height: u32) void {
-    w4.oval(@intFromFloat(pos.x()), @intFromFloat(pos.y()), width, height);
+    w4.oval(pos.xi(), pos.yi(), width, height);
 }
 
 fn rect(pos: Vec, width: u32, height: u32) void {
-    w4.rect(@intFromFloat(pos.x()), @intFromFloat(pos.y()), width, height);
+    w4.rect(pos.xi(), pos.yi(), width, height);
 }
 
 fn blit(sprite: [*]const u8, x: i32, y: i32, width: u32, height: u32, flags: u32) void {
@@ -747,7 +741,7 @@ fn image(m: Sprite, x: i32, y: i32, flags: u32) void {
 }
 
 fn img(m: Sprite, v: Vec, flags: u32) void {
-    blit(m.sprite, @intFromFloat(v.x()), @intFromFloat(v.y()), m.width, m.height, flags);
+    blit(m.sprite, v.xi(), v.yi(), m.width, m.height, flags);
 }
 
 fn color(c: u16) void {
@@ -761,7 +755,7 @@ fn clear(c: u8) void {
 }
 
 fn vpx(v: Vec) void {
-    pixel(@intFromFloat(v.x()), @intFromFloat(v.y()));
+    pixel(v.xi(), v.yi());
 }
 
 fn ppx(p: Particle) void {
