@@ -38,6 +38,7 @@ const State = struct {
     life: i8 = 3, // Life
     score: u8 = 0, // Some sort of game score
     frame: u32 = 0,
+    energy: u5 = 31,
 
     // The inputs
     buttons: *const u8 = w4.MOUSE_BUTTONS,
@@ -126,6 +127,22 @@ const State = struct {
 
     fn button2(state: *State) bool {
         return state.gtf & w4.BUTTON_2 != 0;
+    }
+
+    fn buttonUp(state: *State) bool {
+        return state.gtf & w4.BUTTON_UP != 0;
+    }
+
+    fn buttonDown(state: *State) bool {
+        return state.gtf & w4.BUTTON_DOWN != 0;
+    }
+
+    fn buttonLeft(state: *State) bool {
+        return state.gtf & w4.BUTTON_LEFT != 0;
+    }
+
+    fn buttonRight(state: *State) bool {
+        return state.gtf & w4.BUTTON_RIGHT != 0;
     }
 
     fn transition(state: *State, sceneIndex: u2) void {
@@ -365,13 +382,23 @@ const Game = struct {
             w4.tracef("life %d score %d", s.life, s.score);
         }
 
+        if (s.buttonUp()) {
+            s.energy +|= 1;
+        }
+
+        if (s.buttonDown()) {
+            s.energy -|= 1;
+        }
+
+        w4.tracef("energy %d", @as(i8, s.energy));
+
         if (s.life == 0) {
             game.died.play(2);
             s.transition(OVER);
         }
     }
 
-    fn draw(_: *Game) !void {
+    fn draw(game: *Game) !void {
         clear(BLACK);
 
         color(0x31);
@@ -386,11 +413,44 @@ const Game = struct {
             rect(V(10, 30 - fi), 10, 10);
         }
 
-        triangle(T(100, -1, 120, -5, 105, 30), triColor);
-        triangle(T(80, 30, 140, 40, 90, 50), triPRIMARY);
+        triangle(T(100, 20, 120, 15, 105, 60), triColor);
+        triangle(T(80, 60, 140, 66, 90, 86), triPRIMARY);
 
         triangle(T(80, 90, 100, 150, 10, 150), triXOR);
-        triangle(T(80, 90, 155, 150, 100, 150), triGRAY);
+        triangle(T(80, 90, 145, 150, 100, 150), triGRAY);
+
+        game.hud(s.energy);
+    }
+
+    fn hud(_: *Game, energy: u5) void {
+        // Background of the HUD
+        color(GRAY);
+        w4.rect(0, 0, 160, 20);
+        w4.rect(0, 20, 10, 140);
+        w4.rect(150, 20, 10, 140);
+
+        pixel(149, 20);
+        pixel(10, 20);
+
+        color(PRIMARY);
+        w4.line(8, 160, 8, 22);
+        w4.line(8, 21, 11, 18);
+        w4.line(12, 18, 148, 18);
+        w4.line(149, 19, 151, 21);
+        w4.line(151, 22, 151, 160);
+
+        // The energy bar
+        color(0x4320);
+        image(zap, 148, 18, zap.flags);
+
+        for (0..energy) |e| {
+            const offset: i32 = @intCast(e);
+
+            color(0x3332);
+            w4.oval(154, 160 - (offset * 4), 3, 3);
+            color(0x4440);
+            w4.oval(155, 160 - (offset * 4), 3, 3);
+        }
     }
 };
 
@@ -505,10 +565,10 @@ const Over = struct {
         title("PRESS\n{X}to\nINTRO", 104, 105, BLACK, fg);
 
         color(0x20);
-        image(pine, 142, 107, pine.flags | w4.BLIT_FLIP_X);
+        image(fir, 142, 107, fir.flags | w4.BLIT_FLIP_X);
 
         color(0x10);
-        image(pine, 142, 106, pine.flags | w4.BLIT_FLIP_X);
+        image(fir, 142, 106, fir.flags | w4.BLIT_FLIP_X);
 
         title("|:.:* .*.,*_*", -4, 125, GRAY, GRAY);
         title("*_*,.**,.|::", -7, 123, GRAY, GRAY);
@@ -521,11 +581,14 @@ const Over = struct {
         color(BLACK);
         rect(V(43, 137), 2, 2);
 
+        triangle(T(30, 95, 40, 129, 16, 132), triFir);
+
         color(0x20);
-        image(pine, -10, 116, pine.flags);
+        image(fir, -10, 116, fir.flags);
 
         color(0x10);
-        image(pine, -10, 115, pine.flags);
+        image(fir, -12, 115, fir.flags);
+
         over.snowOver();
 
         title("The SYLT is OVER!!", 8, 3, PRIMARY, WHITE);
@@ -701,6 +764,19 @@ fn triXOR(p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     const y = p.yu();
 
     return @mod(x ^ y, 32) / 4;
+}
+
+fn triFir(p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    const x = p.xu();
+    const y = p.yu();
+
+    const f: u16 = @intCast(@abs(@mod(s.frame, 64) / 32) + 1);
+
+    if (@mod(y, 4) == 0) {
+        return WHITE;
+    }
+
+    return if ((@mod((y ^ x) ^ f, 8) / 3) > 0) WHITE else GRAY;
 }
 
 // The scene indexes
@@ -929,11 +1005,18 @@ pub const coffee = Sprite{
     .height = 10,
 };
 
-pub const pine = Sprite{
+pub const fir = Sprite{
     .sprite = ([128]u8{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x01, 0xe0, 0x00, 0x00, 0x07, 0xc0, 0x00, 0x00, 0x07, 0xf0, 0x00, 0x00, 0x3f, 0xfc, 0x00, 0x00, 0x1f, 0xe0, 0x00, 0x00, 0x0f, 0xe0, 0x00, 0x00, 0x07, 0xf8, 0x00, 0x00, 0x1f, 0xf1, 0x80, 0x00, 0x3f, 0xfe, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0x7f, 0xff, 0x80, 0x03, 0xff, 0xff, 0xd0, 0x01, 0xff, 0xff, 0xa0, 0x01, 0xff, 0xff, 0x80, 0x02, 0x3f, 0xfe, 0x00, 0x00, 0xff, 0xff, 0x80, 0x07, 0xff, 0xff, 0xf0, 0x01, 0xff, 0xff, 0xb0, 0x01, 0xff, 0xff, 0x00, 0x00, 0x3f, 0xff, 0xa0, 0x01, 0xff, 0xff, 0xf0, 0x0f, 0xff, 0xff, 0xf0, 0x11, 0xff, 0xff, 0x9c, 0x01, 0x3f, 0xff, 0xf0, 0x03, 0xff, 0xff, 0xe0 })[0..],
     .width = 32,
     .height = 32,
     .flags = w4.BLIT_1BPP,
+};
+
+pub const zap = Sprite{
+    .sprite = ([64]u8{ 0x00, 0x00, 0x2a, 0x00, 0x00, 0x00, 0xbe, 0x00, 0x00, 0x02, 0xfe, 0x00, 0x00, 0x0b, 0xf8, 0x00, 0x00, 0x2f, 0xf8, 0x00, 0x00, 0xbf, 0xea, 0x00, 0x02, 0xff, 0xfe, 0x00, 0x02, 0xff, 0xfe, 0x00, 0x02, 0xff, 0xf8, 0x00, 0x02, 0xaf, 0xe0, 0x00, 0x00, 0xbf, 0x80, 0x00, 0x02, 0xfe, 0x00, 0x00, 0x02, 0xf8, 0x00, 0x00, 0x0b, 0xe0, 0x00, 0x00, 0x0b, 0x80, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00 })[0..],
+    .width = 16,
+    .height = 16,
+    .flags = 1, // BLIT_2BPP
 };
 
 //
