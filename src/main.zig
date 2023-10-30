@@ -279,8 +279,9 @@ const Intro = struct {
     fn scrollingTitle(_: *Intro) void {
         var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 320));
 
-        title("_  _  _  _  _", 180 + -offset - 13, 14, GRAY, PRIMARY);
-        title("-  -  -  -  -", 180 + -offset - 12, 16, GRAY, PRIMARY);
+        color(GRAY);
+        text("-  -  -  -  -  ", 180 + -offset - 12, 16);
+        text("_  _  _  _  _", 180 + -offset - 13, 14);
         title("I  N  T  R  O", 180 + -offset - 18, 16, GRAY, PRIMARY);
     }
 
@@ -389,13 +390,38 @@ const Game = struct {
             rect(V(10, 30 - fi), 10, 10);
         }
 
-        triangle(T(80, 30, 100, 15, 120, 40), PRIMARY);
-        triangle(T(80, 30, 120, 40, 90, 50), PRIMARY);
+        triangle(T(80, 30, 100, 15, 120, 40), triColor);
+        triangle(T(80, 30, 120, 40, 90, 50), triPRIMARY);
 
-        triangle(T(80, 90, 100, 150, 10, 150), WHITE);
-        triangle(T(80, 90, 155, 150, 100, 150), GRAY);
+        triangle(T(80, 90, 100, 150, 10, 150), triXOR);
+        triangle(T(80, 90, 155, 150, 100, 150), triGRAY);
     }
 };
+
+fn triColor(p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16 {
+    _ = alpha;
+    _ = beta;
+    _ = gamma;
+
+    const d = p.distance(c);
+
+    const x: u16 = @intFromFloat(p.x());
+    const y: u16 = @intFromFloat(p.y());
+
+    if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 20))) / 32 - 16) and @mod(p.x(), 1) == 0 and @mod(p.y(), 2) == 1) {
+        if (d < 11 and @mod(s.frame, 24) < 12) {
+            return PRIMARY;
+        }
+
+        if (@mod(x * y, 4) < 1) {
+            return WHITE;
+        }
+
+        return BLACK;
+    } else {
+        return GRAY;
+    }
+}
 
 const Over = struct {
     // Tangerine Noir
@@ -659,6 +685,29 @@ const GRAY: u16 = 0x0002;
 const BLACK: u16 = 0x0003;
 const PRIMARY: u16 = 0x0004;
 
+fn triWHITE(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    return WHITE;
+}
+
+fn triGRAY(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    return GRAY;
+}
+
+fn triBLACK(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    return BLACK;
+}
+
+fn triPRIMARY(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    return PRIMARY;
+}
+
+fn triXOR(p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    const x: u16 = @intFromFloat(p.x());
+    const y: u16 = @intFromFloat(p.y());
+
+    return @mod(x ^ y, 32) / 4;
+}
+
 // The scene indexes
 const INTRO: u2 = 0;
 const GAME: u2 = 1;
@@ -752,63 +801,34 @@ fn centroid(t: [3]Vec) Vec {
     );
 }
 
-fn triangle(t: [3]Vec, fg: u16) void {
-    const xMin: usize = @intFromFloat(@min(@min(t[0].x(), t[1].x()), t[2].x()));
-    const yMin: usize = @intFromFloat(@min(@min(t[0].y(), t[1].y()), t[2].y()));
-    const xMax: usize = @intFromFloat(@max(@max(t[0].x(), t[1].x()), t[2].x()));
-    const yMax: usize = @intFromFloat(@max(@max(t[0].y(), t[1].y()), t[2].y()));
-
-    color(fg);
+fn triangle(t: [3]Vec, colorFn: *const fn (p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16) void {
+    const area = Vec.cross(t[0], t[1], t[2]);
+    const center = centroid(t);
 
     const bias0: f32 = if (isTopLeft(t[1], t[2])) 0 else -0.0001;
     const bias1: f32 = if (isTopLeft(t[2], t[0])) 0 else -0.0001;
     const bias2: f32 = if (isTopLeft(t[0], t[1])) 0 else -0.0001;
 
-    const area = Vec.cross(t[0], t[1], t[2]);
-    const c = centroid(t);
+    const xMin: usize = @intFromFloat(@min(@min(t[0].x(), t[1].x()), t[2].x()));
+    const xMax: usize = @intFromFloat(@max(@max(t[0].x(), t[1].x()), t[2].x()));
+
+    const yMin: usize = @intFromFloat(@min(@min(t[0].y(), t[1].y()), t[2].y()));
+    const yMax: usize = @intFromFloat(@max(@max(t[0].y(), t[1].y()), t[2].y()));
 
     for (yMin..yMax) |y| {
         for (xMin..xMax) |x| {
-            var p = V(@floatFromInt(x), @floatFromInt(y));
+            var pos = V(@floatFromInt(x), @floatFromInt(y));
 
-            const w0 = p.cross(t[0], t[1]) + bias0;
-            const w1 = p.cross(t[1], t[2]) + bias1;
-            const w2 = p.cross(t[2], t[0]) + bias2;
+            const w0 = pos.cross(t[0], t[1]) + bias0;
+            const w1 = pos.cross(t[1], t[2]) + bias1;
+            const w2 = pos.cross(t[2], t[0]) + bias2;
 
-            const is_inside = (w0 >= 0) and (w1 >= 0) and (w2 >= 0);
-
-            if (is_inside) {
+            if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
                 const alpha = w0 / area;
                 const beta = w1 / area;
                 const gamma = w2 / area;
 
-                if (beta > 0.3) {
-                    //color(WHITE);
-                }
-
-                if (beta < 0.4) {
-                    //color(GRAY);
-                }
-
-                if (alpha > 0.7 or gamma < 0.1) {
-                    //color(WHITE);
-                }
-
-                const d = p.distance(c);
-
-                if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 20))) / 32 - 16) and @mod(x, 1) == 0 and @mod(y, 2) == 1) {
-                    color(BLACK);
-                    if (d < 11 and @mod(s.frame, 24) < 12) {
-                        color(PRIMARY);
-                    }
-
-                    if (@sin(@as(f32, @floatFromInt(x ^ y))) < 0) {
-                        color(WHITE);
-                    }
-                } else {
-                    color(GRAY);
-                }
-
+                color(colorFn(pos, center, alpha, beta, gamma));
                 pixel(@intCast(x), @intCast(y));
             }
         }
