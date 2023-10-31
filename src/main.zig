@@ -217,6 +217,7 @@ const Intro = struct {
         w4.PALETTE.* = intro.tangerineNoir;
         intro.touchedZaps = .{false} ** 4;
         intro.prevTouchedZaps = .{false} ** 4;
+        intro.powerOnFrame = 0;
     }
 
     fn update(intro: *Intro) !void {
@@ -269,10 +270,12 @@ const Intro = struct {
 
         if (intro.powerJustOn()) {
             intro.powerOnTone.play(1);
+            intro.powerOnFrame = s.frame;
         }
 
         if (intro.powerJustOff()) {
             intro.powerOffTone.play(1);
+            intro.powerOnFrame = 0;
         }
 
         intro.prevTouchedZaps = intro.touchedZaps;
@@ -291,6 +294,13 @@ const Intro = struct {
         intro.zaps();
         intro.topcat();
 
+        color(WHITE);
+        if (@reduce(.And, intro.touchedZaps)) {
+            text("POWER ON!", 44, 15);
+        } else {
+            text("NO POWER!", 44, 15);
+        }
+
         try intro.debug(.{
             s.frame,
             s.x,
@@ -298,11 +308,33 @@ const Intro = struct {
             @as(i32, @intFromFloat(s.m.distance(Vec.center()))),
         });
 
-        color(WHITE);
-        if (@reduce(.And, intro.touchedZaps)) {
-            text("POWER ON!", 44, 15);
-        } else {
-            text("NO POWER!", 44, 15);
+        color(PRIMARY);
+
+        if (intro.powerOnFrame > 0) {
+            const sincePowerOn = s.frame - intro.powerOnFrame;
+
+            const size: u32 = sincePowerOn / 3;
+            const step: f32 = @floatFromInt(size);
+
+            intro.towerPos.offset(-(@divFloor(step, 2)), -(@divFloor(step, 2))).oval(size, size);
+
+            if (size > 240) {
+                title("START THE GAME!", 20, 80, WHITE, BLACK);
+
+                if (s.mouseLeftHeld()) {
+                    s.transition(GAME);
+                }
+            }
+
+            // Font mapping
+            ///////////////
+            // å -> \xE5 //
+            // ä -> \xE4 //
+            // ö -> \xF6 //
+            // Å -> \xC5 //
+            // Ä -> \xC4 //
+            // Ö -> \xD6 //
+            ///////////////
         }
     }
 
@@ -545,6 +577,8 @@ const Intro = struct {
 
     touchedZaps: @Vector(4, bool) = .{false} ** 4,
     prevTouchedZaps: @Vector(4, bool) = .{false} ** 4,
+
+    powerOnFrame: u32 = 0,
 
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
