@@ -237,10 +237,10 @@ const Intro = struct {
         if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
             intro.towerPos = intro.towerPos.lerp(s.m, 0.6);
 
-            if (intro.towerPos.distance(V(13, 13)) < 40) intro.touchedZaps[0] = true;
-            if (intro.towerPos.distance(V(146, 11)) < 40) intro.touchedZaps[1] = true;
-            if (intro.towerPos.distance(V(146, 146)) < 40) intro.touchedZaps[2] = true;
-            if (intro.towerPos.distance(V(13, 146)) < 40) intro.touchedZaps[3] = true;
+            if (intro.towerPos.distance(V(13, 13)) < 10) intro.touchedZaps[0] = true;
+            if (intro.towerPos.distance(V(146, 11)) < 10) intro.touchedZaps[1] = true;
+            if (intro.towerPos.distance(V(146, 146)) < 10) intro.touchedZaps[2] = true;
+            if (intro.towerPos.distance(V(13, 146)) < 10) intro.touchedZaps[3] = true;
         } else {
             intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.1);
         }
@@ -322,27 +322,36 @@ const Intro = struct {
         intro.towerLine(V(30, 30), 24, np, 0x33, 0x33);
         intro.towerLine(V(130, 130), 24, np, 0x33, 0x33);
 
+        const tp = intro.towerPos;
+
         color(0x33);
-        if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
+        tp.offset(-30, -30).rect(60, 60);
+
+        color(0x33);
+
+        if (s.mouseLeftHeld() and tp.distance(s.m) < 20) {
             color(0x33);
 
-            if (intro.towerPos.distance(V(13, 13)) < 10) color(0x14);
-            if (intro.towerPos.distance(V(146, 11)) < 10) color(0x14);
-            if (intro.towerPos.distance(V(146, 146)) < 10) color(0x14);
-            if (intro.towerPos.distance(V(13, 146)) < 10) color(0x14);
+            if (tp.distance(V(13, 13)) < 10) color(0x14);
+            if (tp.distance(V(146, 11)) < 10) color(0x14);
+            if (tp.distance(V(146, 146)) < 10) color(0x14);
+            if (tp.distance(V(13, 146)) < 10) color(0x14);
         }
 
-        intro.towerPos.sub(V(19, 19)).oval(38, 38);
+        tp.sub(V(19, 19)).oval(38, 38);
 
         if (s.mouseLeftHeld() and !s.buttonUpHeld()) {
             color(0x3313);
 
-            if (intro.towerPos.distance(V(13, 13)) < 10) color(0x44);
-            if (intro.towerPos.distance(V(146, 11)) < 10) color(0x44);
-            if (intro.towerPos.distance(V(146, 146)) < 10) color(0x44);
-            if (intro.towerPos.distance(V(13, 146)) < 10) color(0x44);
+            if (tp.distance(V(13, 13)) < 10) color(0x44);
+            if (tp.distance(V(146, 11)) < 10) color(0x44);
+            if (tp.distance(V(146, 146)) < 10) color(0x44);
+            if (tp.distance(V(13, 146)) < 10) color(0x44);
 
             s.lm.sub(V(14, 14)).oval(26, 26);
+
+            color(WHITE);
+            s.lm.line(tp);
         }
 
         color(0x4001);
@@ -363,6 +372,46 @@ const Intro = struct {
     fn towerLine(intro: *Intro, a: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16) void {
         const tp = intro.towerPos;
 
+        if (a.eql(V(30, 30))) {
+            if (intro.touchedZaps[0]) {
+                color(0x34);
+                const ao = a.offset(-15, -15);
+
+                ao.line(tp);
+                dotline(ao, tp, 6, points);
+            }
+        }
+
+        if (a.eql(V(130, 30))) {
+            if (intro.touchedZaps[1]) {
+                color(0x34);
+                const ao = a.offset(15, -15);
+
+                ao.line(tp);
+                dotline(ao, tp, 6, points);
+            }
+        }
+
+        if (a.eql(V(130, 130))) {
+            if (intro.touchedZaps[2]) {
+                color(0x34);
+                const ao = a.offset(10, 13);
+
+                ao.line(tp);
+                dotline(ao, tp, 6, points);
+            }
+        }
+
+        if (a.eql(V(30, 130))) {
+            if (intro.touchedZaps[3]) {
+                color(0x34);
+                const ao = a.offset(-13, 14);
+
+                ao.line(tp);
+                dotline(ao, tp, 6, points);
+            }
+        }
+
         for (0.., points) |i, p| {
             const size = dotSize * i / 4;
             const fsize: f32 = @floatFromInt(size);
@@ -370,51 +419,16 @@ const Intro = struct {
 
             if (@mod(i, 2) == 0) {
                 if (intro.powerIsOn()) color(0x43) else color(c2);
+
+                if (a.eql(V(30, 30)) and intro.touchedZaps[0]) color(0x43);
+                if (a.eql(V(130, 30)) and intro.touchedZaps[1]) color(0x43);
+                if (a.eql(V(130, 130)) and intro.touchedZaps[2]) color(0x43);
+                if (a.eql(V(30, 130)) and intro.touchedZaps[3]) color(0x43);
             } else {
                 color(c1);
             }
 
             a.lerp(tp, p).sub(offset).rect(size, size);
-        }
-
-        if (a.eql(V(30, 30))) {
-            const ao = a.offset(-15, -15);
-            const tpo = tp.offset(-25, -25);
-
-            if (intro.touchedZaps[0]) color(0x34) else color(0x4403);
-
-            ao.line(tpo);
-            dotline(ao, tpo, 3, points);
-        }
-
-        if (a.eql(V(130, 30))) {
-            const ao = a.offset(15, -15);
-            const tpo = tp.offset(25, -25);
-
-            if (intro.touchedZaps[1]) color(0x34) else color(0x4403);
-
-            ao.line(tpo);
-            dotline(ao, tpo, 3, points);
-        }
-
-        if (a.eql(V(130, 130))) {
-            const ao = a.offset(20, 20);
-            const tpo = tp.offset(25, 25);
-
-            if (intro.touchedZaps[2]) color(0x34) else color(0x4403);
-
-            ao.line(tpo);
-            dotline(ao, tpo, 3, points);
-        }
-
-        if (a.eql(V(30, 130))) {
-            const ao = a.offset(-20, 20);
-            const tpo = tp.offset(-25, 25);
-
-            if (intro.touchedZaps[3]) color(0x34) else color(0x03);
-
-            ao.line(tpo);
-            dotline(ao, tpo, 3, points);
         }
     }
 
@@ -427,10 +441,9 @@ const Intro = struct {
 
         for (0.., points) |i, p| {
             if (@mod(i, 2) == 0) {
-                color(0x33);
-                if (intro.powerIsOn()) color(0x14) else color(0x32);
+                if (intro.powerIsOn()) color(0x14) else color(0x33);
             } else {
-                if (intro.powerIsOn()) color(0x41) else color(0x23);
+                if (intro.powerIsOn()) color(0x41) else color(0x33);
             }
 
             a.lerp(b, p).sub(offset).rect(size, size);
@@ -449,15 +462,14 @@ const Intro = struct {
 
     fn scrollingTitle(_: *Intro) void {
         var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 480));
-
-        var down: i32 = 136;
+        var down: i32 = 129;
 
         down -= 10;
 
         color(GRAY);
         text("- - - - - ", 180 + -offset - 12, down + 6);
         text("_ _ _ _ _", 180 + -offset - 13, down + 4);
-        title2("I N T R O", 180 + -offset - 18, down + 6, PRIMARY, GRAY);
+        title2("I N T R O", 180 + -offset - 18, down + 6, PRIMARY, WHITE);
     }
 
     fn debug(intro: *Intro, args: anytype) !void {
@@ -467,7 +479,7 @@ const Intro = struct {
 
         // Gray cat
         color(0x4002);
-        image(cat, 110, 132, cat.flags | w4.BLIT_FLIP_X);
+        img(cat, intro.towerPos.offset(10, 10), cat.flags);
 
         const str = try fmt.allocPrint(allocator,
             \\FRAME: {d}
@@ -1184,6 +1196,12 @@ fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
     title(str, x, y, bg, fg);
 }
 
+pub fn log(comptime format: []const u8, args: anytype) void {
+    const str = fmt.allocPrint(allocator, format, args) catch return;
+    defer allocator.free(str);
+    w4.trace(str);
+}
+
 //
 // Exported functions for the WASM-4 game loop
 //
@@ -1198,12 +1216,6 @@ export fn update() void {
 
     // Draw the state
     s.draw() catch unreachable;
-}
-
-pub fn log(comptime format: []const u8, args: anytype) void {
-    const str = fmt.allocPrint(allocator, format, args) catch return;
-    defer allocator.free(str);
-    w4.trace(str);
 }
 
 // Sprites used in the game
