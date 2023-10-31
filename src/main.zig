@@ -294,6 +294,7 @@ const Intro = struct {
         if (intro.powerIsOn()) {
             if (intro.easterEggTime()) {
                 w4.text("KODSNACK!", 44, 15);
+                flyingBirds(s.frame);
             } else {
                 w4.text("POWER ON!", 44, 15);
             }
@@ -1013,21 +1014,9 @@ const Over = struct {
 
         over.snowBehind();
 
-        { // Flying bird
-            const bird = Sprite.bird_flying;
-            const birdFrame = @as(u32, @mod(s.frame, 14) / 2);
-            color(0x3340);
-            w4.blitSub(bird.sprite, @intCast(592 - @mod(s.frame, 592) - 32), 30, 16, 16, birdFrame * 16, 0, bird.width, bird.flags);
-        }
-
-        {
-            const bird = Sprite.bird_eating;
-            const birdFrame = @as(u32, @mod(s.frame, 128) / 64);
-
-            color(0x3340);
-
-            w4.blitSub(bird.sprite, 24, 128, 16, 16, birdFrame * 16, 0, bird.width, bird.flags | w4.BLIT_FLIP_X);
-        }
+        flyingBirds(s.frame);
+        eatingBird(s.frame, 24, 128);
+        idleBird(s.frame, 134, 138);
 
         const fg: u16 = if (over.pressFlipped) PRIMARY else WHITE;
 
@@ -1360,6 +1349,30 @@ pub fn log(comptime format: []const u8, args: anytype) void {
     const str = std.fmt.allocPrint(allocator, format, args) catch return;
     defer allocator.free(str);
     w4.trace(str);
+}
+
+// Animations
+
+fn flyingBirds(f: u32) void {
+    const bird = Sprite.bird_flying;
+    const birdFrame = @as(u32, @mod(f, 14) / 2);
+    color(0x3340);
+    w4.blitSub(bird.sprite, @intCast(592 - @mod(f, 592) - 32), 30, 16, 16, birdFrame * 16, 0, bird.width, bird.flags);
+    w4.blitSub(bird.sprite, @intCast(@mod(f, 692) - 32), 10, 16, 16, birdFrame * 16, 0, bird.width, bird.flags | w4.BLIT_FLIP_X);
+}
+
+fn eatingBird(f: u32, x: i32, y: i32) void {
+    const bird = Sprite.bird_eating;
+    const birdFrame = @as(u32, @mod(f, 128) / 64);
+    color(0x3340);
+    w4.blitSub(bird.sprite, x, y, 16, 16, birdFrame * 16, 0, bird.width, bird.flags | w4.BLIT_FLIP_X);
+}
+
+fn idleBird(f: u32, x: i32, y: i32) void {
+    const bird = Sprite.bird_idle;
+    const birdFrame = @as(u32, @mod(f, 256) / 128);
+    color(0x3340);
+    w4.blitSub(bird.sprite, x, y, 16, 16, birdFrame * 16, 0, bird.width, bird.flags);
 }
 
 //
