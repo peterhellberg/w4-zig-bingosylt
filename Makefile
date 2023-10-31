@@ -1,10 +1,10 @@
-NAME=bingosylt
-TITLE="Bingosylt (Kodsnacks Tvåveckorssylt - \#9)"
-HOSTNAME=peter.tilde.team
+TITLE="BINGO! - Kodsnacks Spelsylt: 9"
+NAME=w4-zig-bingosylt
+ARCHIVE=${NAME}.zip
 GAME_PATH=games/w4-zig-bingosylt/
-PUBLIC_PATH=~/public_html/${GAME_PATH}
-ARCHIVE=w4-zig-bingosylt-itch.zip
 GAME_URL=https://${HOSTNAME}/${GAME_PATH}
+PUBLIC_PATH=~/public_html/${GAME_PATH}
+HOSTNAME=peter.tilde.team
 
 all:
 	zig build -Doptimize=ReleaseSmall
@@ -24,10 +24,11 @@ clean:
 
 .PHONY: bundle
 bundle: all
-	@mkdir -p bundle
 	@w4 bundle zig-out/lib/cart.wasm --title ${TITLE} --html bundle/${NAME}.html 		# HTML
 	@w4 bundle zig-out/lib/cart.wasm --title ${TITLE} --linux bundle/${NAME}.elf 		# Linux (ELF)
 	@w4 bundle zig-out/lib/cart.wasm --title ${TITLE} --windows bundle/${NAME}.exe 	# Windows (PE32+)
+	@zip -juq bundle/${ARCHIVE} bundle/${NAME}.html bundle/${NAME}.elf bundle/${NAME}.exe
+	@echo "✔ Updated bundle/${ARCHIVE}"
 
 .PHONY: backup
 backup: bundle
@@ -37,5 +38,5 @@ backup: bundle
 deploy: bundle
 	@scp -q bundle/${NAME}.html ${HOSTNAME}:${PUBLIC_PATH}/index.html
 	@echo "✔ Updated ${NAME} on ${GAME_URL}"
-	@ssh ${HOSTNAME} 'zip -juq ${PUBLIC_PATH}${ARCHIVE} ${PUBLIC_PATH}index.html'
-	@echo "✔ Updated Itch .zip on ${GAME_URL}${ARCHIVE}"
+	@scp -q bundle/${ARCHIVE} ${HOSTNAME}:${PUBLIC_PATH}${ARCHIVE}
+	@echo "✔ Archive ${GAME_URL}${ARCHIVE}"
