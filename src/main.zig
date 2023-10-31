@@ -249,15 +249,17 @@ const Intro = struct {
             if (intro.touchedZaps[2] and !intro.prevTouchedZaps[2]) intro.zapConnectedTone.play(2);
             if (intro.touchedZaps[3] and !intro.prevTouchedZaps[3]) intro.zapConnectedTone.play(2);
         } else {
-            intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.1);
+            const center = V(80, 80);
+
+            intro.towerPos = intro.towerPos.lerp(center, 0.1);
 
             const tp = intro.towerPos;
 
             if (s.mouseLeftHeld()) {
-                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(13, 13)) < 10) intro.touchedZaps[0] = false;
-                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(146, 11)) < 10) intro.touchedZaps[1] = false;
-                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(146, 146)) < 10) intro.touchedZaps[2] = false;
-                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(13, 146)) < 10) intro.touchedZaps[3] = false;
+                if (tp.distance(center) < 10 and s.m.distance(V(13, 13)) < 10) intro.touchedZaps[0] = false;
+                if (tp.distance(center) < 10 and s.m.distance(V(146, 11)) < 10) intro.touchedZaps[1] = false;
+                if (tp.distance(center) < 10 and s.m.distance(V(146, 146)) < 10) intro.touchedZaps[2] = false;
+                if (tp.distance(center) < 10 and s.m.distance(V(13, 146)) < 10) intro.touchedZaps[3] = false;
             }
 
             if (!intro.touchedZaps[0] and intro.prevTouchedZaps[0]) intro.powerOffTone.play(2);
@@ -303,7 +305,7 @@ const Intro = struct {
             s.frame,
             s.x,
             s.y,
-            @as(i32, @intFromFloat(s.m.distance(Vec.center()))),
+            @as(i32, @intFromFloat(s.m.distance(V(80, 80)))),
         });
 
         color(PRIMARY);
@@ -579,7 +581,7 @@ const Intro = struct {
 
     debugEnabled: bool = false,
     catLastPos: Vec = Vec.zero(),
-    towerPos: Vec = Vec.center(),
+    towerPos: Vec = V(80, 80),
 
     touchedZaps: @Vector(4, bool) = .{false} ** 4,
     prevTouchedZaps: @Vector(4, bool) = .{false} ** 4,
