@@ -12,7 +12,9 @@ var rnd = std.rand.DefaultPrng.init(0);
 // 2D Vector implementation
 const Vec = @import("Vec.zig");
 const V = Vec.new;
+const U = Vec.unew;
 const T = Vec.tri;
+const R = Vec.rec;
 
 // Particle implementation
 const Particle = @import("Particle.zig");
@@ -213,6 +215,7 @@ const State = struct {
 const Intro = struct {
     fn enter(intro: *Intro) !void {
         w4.PALETTE.* = intro.tangerineNoir;
+        intro.touchedZaps = .{false} ** 4;
     }
 
     fn update(intro: *Intro) !void {
@@ -233,6 +236,11 @@ const Intro = struct {
 
         if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
             intro.towerPos = intro.towerPos.lerp(s.m, 0.6);
+
+            if (intro.towerPos.distance(V(13, 13)) < 40) intro.touchedZaps[0] = true;
+            if (intro.towerPos.distance(V(146, 11)) < 40) intro.touchedZaps[1] = true;
+            if (intro.towerPos.distance(V(146, 146)) < 40) intro.touchedZaps[2] = true;
+            if (intro.towerPos.distance(V(13, 146)) < 40) intro.touchedZaps[3] = true;
         } else {
             intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.1);
         }
@@ -241,20 +249,42 @@ const Intro = struct {
     fn draw(intro: *Intro) !void {
         clear(BLACK);
 
+        intro.background();
+
+        const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
+
+        intro.catline(V(-20, 70), V(180, 90), 25, np, V(3, 4));
+        intro.scrollingTitle();
+        intro.tower(np);
+        intro.zaps();
+
+        try intro.debug(.{
+            s.frame,
+            s.x,
+            s.y,
+            @as(i32, @intFromFloat(s.m.distance(Vec.center()))),
+        });
+
+        color(WHITE);
+        if (@reduce(.And, intro.touchedZaps)) {
+            text("POWER ON!", 44, 15);
+        } else {
+            text("NO POWER!", 44, 15);
+        }
+    }
+
+    fn background(intro: *Intro) void {
         for (0..160) |y| {
             for (0..160) |x| {
-                if (@mod(x, 3) == 0 and @mod(y, 3) == 0) {
-                    const r = rnd.random().float(f32);
-                    if (r < 0.001) {
-                        color(WHITE);
-                        upx(x + 1, y);
-
-                        if (r < 0.0001) {
-                            upx(x + 1, y);
-                            upx(x - 1, y);
-                            upx(x, y + 1);
-                            upx(x, y - 1);
+                if (@mod(x ^ y, 3) == 0) {
+                    if (intro.powerIsOn()) {
+                        const r = rnd.random().float(f32);
+                        if (r < 0.001) {
+                            color(0x3310);
+                            U(x, y).oval(3, 3);
                         }
+                        color(GRAY);
+                        upx(x, y);
                     } else {
                         color(GRAY);
                         upx(x, y);
@@ -262,6 +292,14 @@ const Intro = struct {
                 }
             }
         }
+    }
+
+    fn zaps(_: *Intro) void {
+        color(BLACK);
+        V(1, 0).oval(21, 21);
+        V(1, 137).oval(21, 21);
+        V(137, 1).oval(21, 21);
+        V(137, 137).oval(21, 21);
 
         color(0x3240);
         image(zap, 140, 5, zap.flags);
@@ -276,69 +314,130 @@ const Intro = struct {
 
         image(zap, 139, 139, zap.flags | w4.BLIT_ROTATE);
         image(zap, 6, 139, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
+    }
 
-        const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
+    fn tower(intro: *Intro, np: *const [9]f32) void {
+        intro.towerLine(V(30, 130), 24, np, 0x33, 0x33);
+        intro.towerLine(V(130, 30), 24, np, 0x33, 0x33);
+        intro.towerLine(V(30, 30), 24, np, 0x33, 0x33);
+        intro.towerLine(V(130, 130), 24, np, 0x33, 0x33);
 
-        // White cat
-        var w: f32 = @floatFromInt(cat.width);
-        var h: f32 = @floatFromInt(cat.height);
-        var catOffset = V(@divFloor(w, 4), @divFloor(h, 2));
-
-        var fframe: f32 = @floatFromInt(s.frame);
-        var t: f32 = @abs(@mod(fframe, 1000) - 500);
-
-        intro.catline(V(-20, 60), V(180, 80), 25, np, t / 500, catOffset);
-
-        sizeline(V(30, 130), intro.towerPos, 24, np, 0x23, 0x43);
-        sizeline(V(130, 30), intro.towerPos, 24, np, 0x23, 0x43);
-        sizeline(V(30, 30), intro.towerPos, 24, np, 0x23, 0x43);
-        sizeline(V(130, 130), intro.towerPos, 24, np, 0x23, 0x43);
-
-        color(0x42);
+        color(0x33);
         if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
-            color(0x44);
+            color(0x33);
+
+            if (intro.towerPos.distance(V(13, 13)) < 10) color(0x14);
+            if (intro.towerPos.distance(V(146, 11)) < 10) color(0x14);
+            if (intro.towerPos.distance(V(146, 146)) < 10) color(0x14);
+            if (intro.towerPos.distance(V(13, 146)) < 10) color(0x14);
         }
 
-        intro.towerPos.sub(V(20, 20)).oval(40, 40);
+        intro.towerPos.sub(V(19, 19)).oval(38, 38);
 
-        if (s.mouseLeftHeld()) {
-            color(0x4444);
-            s.lm.sub(V(19, 19)).oval(38, 38);
+        if (s.mouseLeftHeld() and !s.buttonUpHeld()) {
+            color(0x3313);
+
+            if (intro.towerPos.distance(V(13, 13)) < 10) color(0x44);
+            if (intro.towerPos.distance(V(146, 11)) < 10) color(0x44);
+            if (intro.towerPos.distance(V(146, 146)) < 10) color(0x44);
+            if (intro.towerPos.distance(V(13, 146)) < 10) color(0x44);
+
+            s.lm.sub(V(14, 14)).oval(26, 26);
         }
 
         color(0x4001);
 
-        var pos = intro.towerPos.sub(catOffset).sub(Vec.set(1));
+        var pos = intro.towerPos.sub(V(3, 4)).sub(Vec.set(1));
 
         if (pos.x() < 80) {
             img(cat, pos, cat.flags | w4.BLIT_FLIP_X);
         } else {
             img(cat, pos, cat.flags);
         }
-
-        intro.scrollingTitle();
-
-        var d: i32 = @intFromFloat(s.m.distance(Vec.center()));
-
-        try intro.debug(.{ s.frame, s.x, s.y, d });
     }
 
-    fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, t: f32, catOffset: Vec) void {
+    fn powerIsOn(intro: *Intro) bool {
+        return @reduce(.And, intro.touchedZaps);
+    }
+
+    fn towerLine(intro: *Intro, a: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16) void {
+        const tp = intro.towerPos;
+
+        for (0.., points) |i, p| {
+            const size = dotSize * i / 4;
+            const fsize: f32 = @floatFromInt(size);
+            const offset = Vec.set(@divFloor(fsize, 2));
+
+            if (@mod(i, 2) == 0) {
+                if (intro.powerIsOn()) color(0x43) else color(c2);
+            } else {
+                color(c1);
+            }
+
+            a.lerp(tp, p).sub(offset).rect(size, size);
+        }
+
+        if (a.eql(V(30, 30))) {
+            const ao = a.offset(-15, -15);
+            const tpo = tp.offset(-25, -25);
+
+            if (intro.touchedZaps[0]) color(0x34) else color(0x4403);
+
+            ao.line(tpo);
+            dotline(ao, tpo, 3, points);
+        }
+
+        if (a.eql(V(130, 30))) {
+            const ao = a.offset(15, -15);
+            const tpo = tp.offset(25, -25);
+
+            if (intro.touchedZaps[1]) color(0x34) else color(0x4403);
+
+            ao.line(tpo);
+            dotline(ao, tpo, 3, points);
+        }
+
+        if (a.eql(V(130, 130))) {
+            const ao = a.offset(20, 20);
+            const tpo = tp.offset(25, 25);
+
+            if (intro.touchedZaps[2]) color(0x34) else color(0x4403);
+
+            ao.line(tpo);
+            dotline(ao, tpo, 3, points);
+        }
+
+        if (a.eql(V(30, 130))) {
+            const ao = a.offset(-20, 20);
+            const tpo = tp.offset(-25, 25);
+
+            if (intro.touchedZaps[3]) color(0x34) else color(0x03);
+
+            ao.line(tpo);
+            dotline(ao, tpo, 3, points);
+        }
+    }
+
+    fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, catOffset: Vec) void {
+        var fframe: f32 = @floatFromInt(s.frame);
+        var t: f32 = @abs(@mod(fframe, 1000) - 500) / 500;
         const catPos = a.lerp(b, t).sub(catOffset);
         const fsize: f32 = @floatFromInt(size);
         const offset = Vec.set(@divFloor(fsize, 2));
 
         for (0.., points) |i, p| {
             if (@mod(i, 2) == 0) {
-                color(0x23);
+                color(0x33);
+                if (intro.powerIsOn()) color(0x14) else color(0x32);
             } else {
-                color(0x42);
+                if (intro.powerIsOn()) color(0x41) else color(0x23);
             }
 
             a.lerp(b, p).sub(offset).rect(size, size);
         }
 
-        color(0x4001);
+        if (intro.powerIsOn()) color(0x403) else color(0x101);
+
         if (intro.catLastPos.x() < catPos.x()) {
             img(cat, catPos, cat.flags | w4.BLIT_FLIP_X);
         } else {
@@ -349,16 +448,16 @@ const Intro = struct {
     }
 
     fn scrollingTitle(_: *Intro) void {
-        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 320));
+        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 480));
 
-        var down: i32 = @intCast(@mod(s.frame, 400) / 2);
+        var down: i32 = 136;
 
         down -= 10;
 
         color(GRAY);
         text("- - - - - ", 180 + -offset - 12, down + 6);
         text("_ _ _ _ _", 180 + -offset - 13, down + 4);
-        title("I N T R O", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
+        title2("I N T R O", 180 + -offset - 18, down + 6, PRIMARY, GRAY);
     }
 
     fn debug(intro: *Intro, args: anytype) !void {
@@ -383,6 +482,8 @@ const Intro = struct {
     debugEnabled: bool = false,
     catLastPos: Vec = Vec.zero(),
     towerPos: Vec = Vec.center(),
+
+    touchedZaps: @Vector(4, bool) = .{false} ** 4,
 
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
@@ -965,6 +1066,13 @@ fn title(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
     text(str, x + 1, y + 1);
 }
 
+fn title2(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
+    color(bg);
+    text(str, x, y);
+    color(fg);
+    text(str, x - 1, y);
+}
+
 fn color(c: u16) void {
     w4.DRAW_COLORS.* = c;
 }
@@ -1066,42 +1174,6 @@ fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
 
     for (points) |p| {
         a.lerp(b, p).sub(offset).rect(dotSize, dotSize);
-    }
-}
-
-fn sizeline(a: Vec, b: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16) void {
-    for (0.., points) |i, p| {
-        const size = dotSize * i / 4;
-        const fsize: f32 = @floatFromInt(size);
-        const offset = Vec.set(@divFloor(fsize, 2));
-
-        if (@mod(i, 2) == 0) {
-            color(c2);
-        } else {
-            color(c1);
-        }
-
-        a.lerp(b, p).sub(offset).rect(size, size);
-    }
-
-    color(0x4444);
-
-    if (a.eql(V(30, 30))) {
-        dotline(a, b.offset(-25, -25), 3, points);
-    }
-
-    if (a.eql(V(130, 30))) {
-        dotline(a, b.offset(25, -25), 3, points);
-    }
-
-    if (a.eql(V(30, 130))) {
-        dotline(a, b.offset(-25, 25), 3, points);
-    }
-
-    if (a.eql(V(130, 130))) {
-        if (b.x() < 95 or b.y() < 96) {
-            dotline(a, b.offset(25, 25), 3, points);
-        }
     }
 }
 

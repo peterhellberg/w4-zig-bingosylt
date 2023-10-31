@@ -7,6 +7,9 @@ const Self = @This();
 
 const Vec = @Vector(2, f32);
 
+//const Tri = [3]Vec;
+const Rec = [2]Vec;
+
 data: Vec,
 
 /// Construct new vector.
@@ -14,9 +17,18 @@ pub fn new(vx: f32, vy: f32) Self {
     return .{ .data = [2]f32{ vx, vy } };
 }
 
+pub fn unew(vx: usize, vy: usize) Self {
+    return .{ .data = [2]f32{ @floatFromInt(vx), @floatFromInt(vy) } };
+}
+
 /// Construct new triangle.
 pub fn tri(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) [3]Self {
     return .{ Self.new(x1, y1), Self.new(x2, y2), Self.new(x3, y3) };
+}
+
+/// Construct new rectangle.
+pub fn rec(x1: f32, y1: f32, x2: f32, y2: f32) Rec {
+    return .{ Self.new(x1, y1), Self.new(x2, y2) };
 }
 
 pub fn x(self: Self) f32 {
@@ -211,4 +223,10 @@ pub fn oval(self: Self, width: u32, height: u32) void {
 
 pub fn rect(self: Self, width: u32, height: u32) void {
     w4.rect(self.xi(), self.yi(), width, height);
+}
+
+pub fn in(self: Self, r: Rec) bool {
+    _ = r;
+    _ = self;
+    return false;
 }
