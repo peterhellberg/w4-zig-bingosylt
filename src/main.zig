@@ -226,10 +226,6 @@ const Intro = struct {
             )
         ];
 
-        if (s.button1()) {
-            s.transition(GAME);
-        }
-
         if (s.button2()) {
             intro.debugEnabled = !intro.debugEnabled;
         }
@@ -295,8 +291,13 @@ const Intro = struct {
         intro.topcat();
 
         color(WHITE);
-        if (@reduce(.And, intro.touchedZaps)) {
-            w4.text("POWER ON!", 44, 15);
+        if (intro.powerIsOn()) {
+            if (s.frame - intro.powerOnFrame < 250) {
+                w4.text("POWER ON!", 44, 15);
+            } else {
+                // Easter egg
+                w4.text("KODSNACK!", 44, 15);
+            }
         } else {
             w4.text("NO POWER!", 44, 15);
         }
@@ -305,23 +306,25 @@ const Intro = struct {
             s.frame,
             s.x,
             s.y,
+            intro.powerIsOn(),
             @as(i32, @intFromFloat(s.m.distance(V(80, 80)))),
         });
-
-        color(PRIMARY);
 
         if (intro.powerOnFrame > 0) {
             const sincePowerOn = s.frame - intro.powerOnFrame;
 
-            const size: u32 = sincePowerOn / 3;
+            const size: u32 = if (sincePowerOn < 500) sincePowerOn / 2 else 250;
             const step: f32 = @floatFromInt(size);
 
-            intro.towerPos.offset(-(@divFloor(step, 2)), -(@divFloor(step, 2))).oval(size, size);
+            const tp = intro.towerPos;
 
-            if (size > 240) {
-                title("START THE GAME!", 20, 80, WHITE, BLACK);
+            if (size < 250) color(PRIMARY) else color(BLACK);
+            tp.offset(-(@divFloor(step, 2)), -(@divFloor(step, 2))).oval(size, size);
 
-                if (s.mouseLeftHeld()) {
+            if (size == 250) {
+                title("PRESS\n\x80to\nGAME!", 104, 105, 0, WHITE);
+
+                if (s.button1()) {
                     s.transition(GAME);
                 }
             }
@@ -339,9 +342,14 @@ const Intro = struct {
     }
 
     fn background(intro: *Intro) void {
+        if (intro.powerIsOn()) {
+            triangle(T(-1, -1, 161, -1, 161, 161), introBgPowerOn);
+            triangle(T(-1, -1, 161, 161, -1, 161), introBgPowerOn);
+        }
+
         for (0..160) |y| {
             for (0..160) |x| {
-                if (@mod(x ^ y, 3) == 0) {
+                if (@mod(x ^ y, 5) == 0) {
                     if (intro.powerIsOn()) {
                         const r = rnd.random().float(f32);
                         if (r < 0.001) {
@@ -415,9 +423,12 @@ const Intro = struct {
             if (tp.distance(V(13, 146)) < 10) color(0x14);
         }
 
-        tp.sub(V(18, 18)).oval(32, 32);
+        tp.sub(V(14, 14)).oval(28, 28);
 
         if (s.mouseLeftHeld() and !s.buttonUpHeld()) {
+            color(GRAY);
+            s.lm.line(tp);
+
             color(0x3313);
 
             if (tp.distance(V(13, 13)) < 10) color(0x44);
@@ -425,10 +436,7 @@ const Intro = struct {
             if (tp.distance(V(146, 146)) < 10) color(0x44);
             if (tp.distance(V(13, 146)) < 10) color(0x44);
 
-            s.lm.sub(V(14, 14)).oval(26, 26);
-
-            color(WHITE);
-            s.lm.line(tp);
+            s.lm.sub(V(13, 13)).oval(26, 26);
         }
 
         color(0x4001);
@@ -449,11 +457,11 @@ const Intro = struct {
     }
 
     fn powerJustOn(intro: *Intro) bool {
-        return @reduce(.And, intro.touchedZaps) and !@reduce(.And, intro.prevTouchedZaps);
+        return intro.powerIsOn() and !@reduce(.And, intro.prevTouchedZaps);
     }
 
     fn powerJustOff(intro: *Intro) bool {
-        return !@reduce(.And, intro.touchedZaps) and @reduce(.And, intro.prevTouchedZaps);
+        return !intro.powerIsOn() and @reduce(.And, intro.prevTouchedZaps);
     }
 
     fn towerLine(intro: *Intro, a: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16) void {
@@ -572,11 +580,32 @@ const Intro = struct {
         const str = try std.fmt.allocPrint(allocator,
             \\FRAME: {d}
             \\MOUSE: [{d}][{d}]
+            \\STATE: {any}
             \\DEBUG: {any}
         , args);
         defer allocator.free(str);
 
-        title(str, 20, 130, GRAY, WHITE);
+        title(str, 20, 120, GRAY, WHITE);
+    }
+
+    fn introBgPowerOn(p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
+        const d = p.distance(c);
+        const x = p.xu();
+        const y = p.yu();
+
+        if (d > @abs(@as(f32, @floatFromInt(@mod(s.frame, 60))) / 32 - 16) and @mod(y ^ x, 7) == 0 and @mod(y, 2) == 1) {
+            if (d < 11 and @mod(s.frame, 14) < 102) {
+                return PRIMARY;
+            }
+
+            if (@mod(x * y, 4) < 1) {
+                return PRIMARY;
+            }
+
+            return BLACK;
+        }
+
+        return 0;
     }
 
     debugEnabled: bool = false,
@@ -872,11 +901,7 @@ const Game = struct {
     },
 };
 
-fn triColor(p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16 {
-    _ = alpha;
-    _ = beta;
-    _ = gamma;
-
+fn triColor(p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
     const d = p.distance(c);
     const x = p.xu();
     const y = p.yu();
@@ -980,9 +1005,9 @@ const Over = struct {
 
         const fg: u16 = if (over.pressFlipped) PRIMARY else WHITE;
 
-        title("PRESS\n \x80to\nINTRO", 104, 105, BLACK, fg);
+        title("PRESS\n\x80to\nINTRO", 104, 105, BLACK, fg);
 
-        const fir = Sprite.death;
+        const fir = Sprite.fir;
 
         color(0x20);
         fir.blit(142, 107, fir.flags | w4.BLIT_FLIP_X);
@@ -996,7 +1021,7 @@ const Over = struct {
         color(0x4301);
         death.blit(40, 15, flags);
 
-        const coffee = Sprite.death;
+        const coffee = Sprite.coffee;
 
         color(0x4302);
         coffee.blit(38, 134, coffee.flags);
