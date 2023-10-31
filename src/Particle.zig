@@ -1,8 +1,8 @@
 const std = @import("std");
-const math = std.math;
-const Self = @This();
 
 const Vec = @import("Vec.zig");
+
+const Self = @This();
 
 position: Vec = Vec.zero(),
 velocity: Vec = Vec.zero(),
@@ -17,11 +17,11 @@ pub fn new(x: f32, y: f32, angle: f32, speed: f32, life: f32) Self {
 }
 
 pub fn velocity(angle: f32, speed: f32) Vec {
-    const angleInRadians = angle * math.pi / 180;
+    const angleInRadians = angle * std.math.pi / 180;
 
     return Vec.new(
-        speed * math.cos(angleInRadians),
-        speed * math.sin(angleInRadians),
+        speed * std.math.cos(angleInRadians),
+        speed * std.math.sin(angleInRadians),
     );
 }
 

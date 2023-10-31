@@ -1,5 +1,4 @@
 const std = @import("std");
-const math = std.math;
 
 const w4 = @import("wasm4.zig");
 
@@ -7,11 +6,8 @@ const Self = @This();
 
 const Vec = @Vector(2, f32);
 
-const Rec = [2]Vec;
-
 data: Vec,
 
-/// Construct new vector.
 pub fn new(vx: f32, vy: f32) Self {
     return .{ .data = [2]f32{ vx, vy } };
 }
@@ -20,14 +16,8 @@ pub fn unew(vx: usize, vy: usize) Self {
     return .{ .data = [2]f32{ @floatFromInt(vx), @floatFromInt(vy) } };
 }
 
-/// Construct new triangle.
 pub fn tri(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) [3]Self {
     return .{ Self.new(x1, y1), Self.new(x2, y2), Self.new(x3, y3) };
-}
-
-/// Construct new rectangle.
-pub fn rec(x1: f32, y1: f32, x2: f32, y2: f32) Rec {
-    return .{ Self.new(x1, y1), Self.new(x2, y2) };
 }
 
 pub fn x(self: Self) f32 {
@@ -58,11 +48,6 @@ pub fn yu(self: Self) u16 {
 pub fn set(val: f32) Self {
     const result = @as(Vec, @splat(val));
     return .{ .data = result };
-}
-
-/// Shorthand for (80..)
-pub fn center() Self {
-    return set(80);
 }
 
 /// Shorthand for (0..).
@@ -114,12 +99,12 @@ pub fn toArray(self: Self) [2]f32 {
 /// Return the angle (in degrees) between two vectors.
 pub fn getAngle(self: Self, other: Self) f32 {
     const dot_product = dot(norm(self), norm(other));
-    return radianToDegree(math.acos(dot_product));
+    return radianToDegree(std.math.acos(dot_product));
 }
 
 /// Convert radian to degree
 pub inline fn radianToDegree(r: f32) f32 {
-    return r * 180.0 / math.pi;
+    return r * 180.0 / std.math.pi;
 }
 
 /// Return the length (magnitude) of given vector.
@@ -226,10 +211,4 @@ pub fn rect(self: Self, width: u32, height: u32) void {
 
 pub fn text(self: Self, str: []const u8) void {
     w4.text(str, self.xi(), self.yi());
-}
-
-pub fn in(self: Self, r: Rec) bool {
-    _ = r;
-    _ = self;
-    return false;
 }

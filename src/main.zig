@@ -1,5 +1,7 @@
 const std = @import("std");
-const fmt = std.fmt;
+
+// WASM-4
+const w4 = @import("wasm4.zig");
 
 // 640 ought to be enough for anybody.
 var memory: [640]u8 = undefined;
@@ -14,27 +16,13 @@ const Vec = @import("Vec.zig");
 const V = Vec.new;
 const U = Vec.unew;
 const T = Vec.tri;
-const R = Vec.rec;
 
 // Particle implementation
 const Particle = @import("Particle.zig");
 const P = Particle.new;
 
-// WASM-4
-const w4 = @import("wasm4.zig");
-const text = w4.text;
-const line = w4.line;
-const hline = w4.hline;
-
 const Tone = @import("Tone.zig");
 const Sprite = @import("Sprite.zig");
-
-const zap = Sprite.zap;
-const cat = Sprite.cat;
-const sylt = Sprite.sylt;
-const death = Sprite.death;
-const fir = Sprite.fir;
-const coffee = Sprite.coffee;
 
 // Disk represents what is read and written
 // from the persistent storage by the game.
@@ -212,8 +200,8 @@ const State = struct {
     buttons: *const u8 = w4.MOUSE_BUTTONS,
     gamepad: *const u8 = w4.GAMEPAD1,
 
-    m: Vec = Vec.center(),
-    lm: Vec = Vec.center(),
+    m: Vec = Vec.set(80),
+    lm: Vec = Vec.set(80),
 
     scenes: [3]Scene = .{
         .{ .intro = Intro{} },
@@ -306,9 +294,9 @@ const Intro = struct {
 
         color(WHITE);
         if (@reduce(.And, intro.touchedZaps)) {
-            text("POWER ON!", 44, 15);
+            w4.text("POWER ON!", 44, 15);
         } else {
-            text("NO POWER!", 44, 15);
+            w4.text("NO POWER!", 44, 15);
         }
 
         try intro.debug(.{
@@ -376,6 +364,8 @@ const Intro = struct {
         V(137, 1).oval(21, 21);
         V(137, 137).oval(21, 21);
 
+        const zap = Sprite.zap;
+
         color(0x3240);
         zap.blit(140, 5, zap.flags);
         zap.blit(5, 5, zap.flags | w4.BLIT_FLIP_Y);
@@ -442,6 +432,8 @@ const Intro = struct {
         color(0x4001);
 
         var pos = intro.towerPos.offset(-6, -4);
+
+        const cat = Sprite.cat;
 
         if (pos.x() < 80) {
             cat.vblit(pos, cat.flags | w4.BLIT_FLIP_X);
@@ -544,6 +536,8 @@ const Intro = struct {
 
         if (intro.powerIsOn()) color(0x403) else color(0x101);
 
+        const cat = Sprite.cat;
+
         if (intro.catLastPos.x() < catPos.x()) {
             cat.vblit(catPos, cat.flags | w4.BLIT_FLIP_X);
         } else {
@@ -557,8 +551,8 @@ const Intro = struct {
         var offset: i32 = @intCast(@mod(@divFloor(s.frame, 1), 480));
 
         color(GRAY);
-        text("- - - - - ", 180 + -offset - 12, down + 6);
-        text("_ _ _ _ _", 180 + -offset - 13, down + 4);
+        w4.text("- - - - - ", 180 + -offset - 12, down + 6);
+        w4.text("_ _ _ _ _", 180 + -offset - 13, down + 4);
         title2("I N T R O", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
     }
 
@@ -567,11 +561,13 @@ const Intro = struct {
             return;
         }
 
+        const cat = Sprite.cat;
+
         // Gray cat
         color(0x4002);
         cat.vblit(intro.towerPos.offset(10, 10), cat.flags);
 
-        const str = try fmt.allocPrint(allocator,
+        const str = try std.fmt.allocPrint(allocator,
             \\FRAME: {d}
             \\MOUSE: [{d}][{d}]
             \\DEBUG: {any}
@@ -752,6 +748,8 @@ const Game = struct {
             color(WHITE);
             w4.oval(144, 23, 20, 13);
 
+            const sylt = Sprite.sylt;
+
             color(0x0003);
             sylt.blit(4, 5, sylt.flags);
 
@@ -814,6 +812,8 @@ const Game = struct {
                 color(0x4320);
             }
 
+            const zap = Sprite.zap;
+
             zap.blit(146, 12, zap.flags);
 
             for (0..energy) |e| {
@@ -833,7 +833,7 @@ const Game = struct {
         }
 
         color(0x3431);
-        text(str, 151, 2);
+        w4.text(str, 151, 2);
     }
 
     // Tangerine Noir
@@ -966,6 +966,8 @@ const Over = struct {
         color(WHITE);
         V(0, 130).rect(160, 30);
 
+        const death = Sprite.death;
+
         var flags = death.flags;
 
         if (over.deathFlipped) {
@@ -978,6 +980,8 @@ const Over = struct {
 
         title("PRESS\n \x80to\nINTRO", 104, 105, BLACK, fg);
 
+        const fir = Sprite.death;
+
         color(0x20);
         fir.blit(142, 107, fir.flags | w4.BLIT_FLIP_X);
 
@@ -989,6 +993,8 @@ const Over = struct {
 
         color(0x4301);
         death.blit(40, 15, flags);
+
+        const coffee = Sprite.death;
 
         color(0x4302);
         coffee.blit(38, 134, coffee.flags);
@@ -1174,16 +1180,16 @@ const OVER: u2 = 2;
 
 fn title(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
     color(bg);
-    text(str, x, y);
+    w4.text(str, x, y);
     color(fg);
-    text(str, x + 1, y + 1);
+    w4.text(str, x + 1, y + 1);
 }
 
 fn title2(str: []const u8, x: i32, y: i32, bg: u16, fg: u16) void {
     color(bg);
-    text(str, x, y);
+    w4.text(str, x, y);
     color(fg);
-    text(str, x - 1, y);
+    w4.text(str, x - 1, y);
 }
 
 fn color(c: u16) void {
@@ -1291,14 +1297,14 @@ fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
 }
 
 fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
-    const str = try fmt.allocPrint(allocator, "{any}", .{arg});
+    const str = try std.fmt.allocPrint(allocator, "{any}", .{arg});
     defer allocator.free(str);
 
     title(str, x, y, bg, fg);
 }
 
 pub fn log(comptime format: []const u8, args: anytype) void {
-    const str = fmt.allocPrint(allocator, format, args) catch return;
+    const str = std.fmt.allocPrint(allocator, format, args) catch return;
     defer allocator.free(str);
     w4.trace(str);
 }

@@ -1,6 +1,6 @@
-const Vec = @import("Vec.zig");
-
 const w4 = @import("wasm4.zig");
+
+const Vec = @import("Vec.zig");
 
 const Self = @This();
 
