@@ -216,6 +216,7 @@ const Intro = struct {
     fn enter(intro: *Intro) !void {
         w4.PALETTE.* = intro.tangerineNoir;
         intro.touchedZaps = .{false} ** 4;
+        intro.prevTouchedZaps = .{false} ** 4;
     }
 
     fn update(intro: *Intro) !void {
@@ -237,13 +238,44 @@ const Intro = struct {
         if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
             intro.towerPos = intro.towerPos.lerp(s.m, 0.6);
 
-            if (intro.towerPos.distance(V(13, 13)) < 10) intro.touchedZaps[0] = true;
-            if (intro.towerPos.distance(V(146, 11)) < 10) intro.touchedZaps[1] = true;
-            if (intro.towerPos.distance(V(146, 146)) < 10) intro.touchedZaps[2] = true;
-            if (intro.towerPos.distance(V(13, 146)) < 10) intro.touchedZaps[3] = true;
+            const tp = intro.towerPos;
+
+            if (tp.distance(V(13, 13)) < 10) intro.touchedZaps[0] = true;
+            if (tp.distance(V(146, 11)) < 10) intro.touchedZaps[1] = true;
+            if (tp.distance(V(146, 146)) < 10) intro.touchedZaps[2] = true;
+            if (tp.distance(V(13, 146)) < 10) intro.touchedZaps[3] = true;
+
+            if (intro.touchedZaps[0] and !intro.prevTouchedZaps[0]) intro.zapConnectedTone.play(2);
+            if (intro.touchedZaps[1] and !intro.prevTouchedZaps[1]) intro.zapConnectedTone.play(2);
+            if (intro.touchedZaps[2] and !intro.prevTouchedZaps[2]) intro.zapConnectedTone.play(2);
+            if (intro.touchedZaps[3] and !intro.prevTouchedZaps[3]) intro.zapConnectedTone.play(2);
         } else {
             intro.towerPos = intro.towerPos.lerp(Vec.center(), 0.1);
+
+            const tp = intro.towerPos;
+
+            if (s.mouseLeftHeld()) {
+                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(13, 13)) < 10) intro.touchedZaps[0] = false;
+                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(146, 11)) < 10) intro.touchedZaps[1] = false;
+                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(146, 146)) < 10) intro.touchedZaps[2] = false;
+                if (tp.distance(Vec.center()) < 10 and s.m.distance(V(13, 146)) < 10) intro.touchedZaps[3] = false;
+            }
+
+            if (!intro.touchedZaps[0] and intro.prevTouchedZaps[0]) intro.powerOffTone.play(2);
+            if (!intro.touchedZaps[1] and intro.prevTouchedZaps[1]) intro.powerOffTone.play(2);
+            if (!intro.touchedZaps[2] and intro.prevTouchedZaps[2]) intro.powerOffTone.play(2);
+            if (!intro.touchedZaps[3] and intro.prevTouchedZaps[3]) intro.powerOffTone.play(2);
         }
+
+        if (intro.powerJustOn()) {
+            intro.powerOnTone.play(1);
+        }
+
+        if (intro.powerJustOff()) {
+            intro.powerOffTone.play(1);
+        }
+
+        intro.prevTouchedZaps = intro.touchedZaps;
     }
 
     fn draw(intro: *Intro) !void {
@@ -254,9 +286,10 @@ const Intro = struct {
         const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
 
         intro.catline(V(-20, 70), V(180, 90), 25, np, V(3, 4));
-        intro.scrollingTitle();
+        intro.scrollingTitle(138);
         intro.tower(np);
         intro.zaps();
+        intro.topcat();
 
         try intro.debug(.{
             s.frame,
@@ -305,15 +338,15 @@ const Intro = struct {
         image(zap, 140, 5, zap.flags);
         image(zap, 5, 5, zap.flags | w4.BLIT_FLIP_Y);
 
-        image(zap, 140, 140, zap.flags | w4.BLIT_ROTATE);
-        image(zap, 5, 140, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
+        image(zap, 138, 138, zap.flags | w4.BLIT_ROTATE);
+        image(zap, 5, 139, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
 
         color(0x4000);
         image(zap, 139, 5, zap.flags);
         image(zap, 6, 5, zap.flags | w4.BLIT_FLIP_Y);
 
-        image(zap, 139, 139, zap.flags | w4.BLIT_ROTATE);
-        image(zap, 6, 139, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
+        image(zap, 138, 137, zap.flags | w4.BLIT_ROTATE);
+        image(zap, 5, 137, zap.flags | w4.BLIT_ROTATE | w4.BLIT_FLIP_Y);
     }
 
     fn tower(intro: *Intro, np: *const [9]f32) void {
@@ -327,6 +360,16 @@ const Intro = struct {
         color(0x33);
         tp.offset(-30, -30).rect(60, 60);
 
+        if (intro.powerIsOn()) color(BLACK) else color(GRAY);
+        tp.offset(-25, -25).text(if (intro.touchedZaps[0]) "ON" else "OFF");
+        tp.offset(5, -25).text(if (intro.touchedZaps[1]) " ON" else "OFF");
+        tp.offset(5, 18).text(if (intro.touchedZaps[2]) " ON" else "OFF");
+        tp.offset(-25, 18).text(if (intro.touchedZaps[3]) "ON" else "OFF");
+    }
+
+    fn topcat(intro: *Intro) void {
+        const tp = intro.towerPos;
+
         color(0x33);
 
         if (s.mouseLeftHeld() and tp.distance(s.m) < 20) {
@@ -338,7 +381,7 @@ const Intro = struct {
             if (tp.distance(V(13, 146)) < 10) color(0x14);
         }
 
-        tp.sub(V(19, 19)).oval(38, 38);
+        tp.sub(V(18, 18)).oval(32, 32);
 
         if (s.mouseLeftHeld() and !s.buttonUpHeld()) {
             color(0x3313);
@@ -356,7 +399,7 @@ const Intro = struct {
 
         color(0x4001);
 
-        var pos = intro.towerPos.sub(V(3, 4)).sub(Vec.set(1));
+        var pos = intro.towerPos.offset(-6, -4);
 
         if (pos.x() < 80) {
             img(cat, pos, cat.flags | w4.BLIT_FLIP_X);
@@ -367,6 +410,14 @@ const Intro = struct {
 
     fn powerIsOn(intro: *Intro) bool {
         return @reduce(.And, intro.touchedZaps);
+    }
+
+    fn powerJustOn(intro: *Intro) bool {
+        return @reduce(.And, intro.touchedZaps) and !@reduce(.And, intro.prevTouchedZaps);
+    }
+
+    fn powerJustOff(intro: *Intro) bool {
+        return !@reduce(.And, intro.touchedZaps) and @reduce(.And, intro.prevTouchedZaps);
     }
 
     fn towerLine(intro: *Intro, a: Vec, dotSize: u32, points: []const f32, c1: u16, c2: u16) void {
@@ -460,16 +511,13 @@ const Intro = struct {
         intro.catLastPos = catPos;
     }
 
-    fn scrollingTitle(_: *Intro) void {
-        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 2), 480));
-        var down: i32 = 129;
-
-        down -= 10;
+    fn scrollingTitle(_: *Intro, down: i32) void {
+        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 1), 480));
 
         color(GRAY);
         text("- - - - - ", 180 + -offset - 12, down + 6);
         text("_ _ _ _ _", 180 + -offset - 13, down + 4);
-        title2("I N T R O", 180 + -offset - 18, down + 6, PRIMARY, WHITE);
+        title2("I N T R O", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
     }
 
     fn debug(intro: *Intro, args: anytype) !void {
@@ -496,6 +544,7 @@ const Intro = struct {
     towerPos: Vec = Vec.center(),
 
     touchedZaps: @Vector(4, bool) = .{false} ** 4,
+    prevTouchedZaps: @Vector(4, bool) = .{false} ** 4,
 
     // Tangerine Noir
     // https://lospec.com/palette-list/tangerine-noir
@@ -524,6 +573,42 @@ const Intro = struct {
         0xce79d2,
         0xa065cd,
         0x6e51c8,
+    },
+
+    zapConnectedTone: Tone = Tone{
+        .freq1 = 69,
+        .freq2 = 120,
+        .attack = 0,
+        .decay = 0,
+        .sustain = 20,
+        .release = 10,
+        .peak = 16,
+        .volume = 10,
+        .mode = 2,
+    },
+
+    powerOffTone: Tone = Tone{
+        .freq1 = 120,
+        .freq2 = 69,
+        .attack = 0,
+        .decay = 0,
+        .sustain = 20,
+        .release = 10,
+        .peak = 16,
+        .volume = 10,
+        .mode = 2,
+    },
+
+    powerOnTone: Tone = Tone{
+        .freq1 = 70,
+        .freq2 = 70,
+        .attack = 51,
+        .decay = 127,
+        .sustain = 214,
+        .release = 45,
+        .peak = 10,
+        .volume = 6,
+        .mode = 2,
     },
 };
 
