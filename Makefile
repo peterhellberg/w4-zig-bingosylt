@@ -1,5 +1,10 @@
 NAME=bingosylt
 TITLE="Bingosylt (Kodsnacks Tvåveckorssylt - \#9)"
+HOSTNAME=peter.tilde.team
+GAME_PATH=games/w4-zig-bingosylt/
+PUBLIC_PATH=~/public_html/${GAME_PATH}
+ARCHIVE=w4-zig-bingosylt-itch.zip
+GAME_URL=https://${HOSTNAME}/${GAME_PATH}
 
 all:
 	zig build -Doptimize=ReleaseSmall
@@ -30,5 +35,7 @@ backup: bundle
 
 .PHONY: deploy
 deploy: bundle
-	@scp -q bundle/${NAME}.html peter.tilde.team:~/public_html/games/w4-zig-bingosylt/index.html
-	@echo "✔ Updated ${NAME} on https://peter.tilde.team/games/w4-zig-bingosylt/"
+	@scp -q bundle/${NAME}.html ${HOSTNAME}:${PUBLIC_PATH}/index.html
+	@echo "✔ Updated ${NAME} on ${GAME_URL}"
+	@ssh ${HOSTNAME} 'zip -juq ${PUBLIC_PATH}${ARCHIVE} ${PUBLIC_PATH}index.html'
+	@echo "✔ Updated Itch .zip on ${GAME_URL}${ARCHIVE}"
