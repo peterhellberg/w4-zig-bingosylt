@@ -7,7 +7,6 @@ const Self = @This();
 
 const Vec = @Vector(2, f32);
 
-//const Tri = [3]Vec;
 const Rec = [2]Vec;
 
 data: Vec,
