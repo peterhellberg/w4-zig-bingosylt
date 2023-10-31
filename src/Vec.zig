@@ -224,6 +224,10 @@ pub fn rect(self: Self, width: u32, height: u32) void {
     w4.rect(self.xi(), self.yi(), width, height);
 }
 
+pub fn text(self: Self, str: []const u8) void {
+    w4.text(str, self.xi(), self.yi());
+}
+
 pub fn in(self: Self, r: Rec) bool {
     _ = r;
     _ = self;
