@@ -292,11 +292,10 @@ const Intro = struct {
 
         color(WHITE);
         if (intro.powerIsOn()) {
-            if (s.frame - intro.powerOnFrame < 250) {
-                w4.text("POWER ON!", 44, 15);
-            } else {
-                // Easter egg
+            if (intro.easterEggTime()) {
                 w4.text("KODSNACK!", 44, 15);
+            } else {
+                w4.text("POWER ON!", 44, 15);
             }
         } else {
             w4.text("NO POWER!", 44, 15);
@@ -557,13 +556,20 @@ const Intro = struct {
         intro.catLastPos = catPos;
     }
 
-    fn scrollingTitle(_: *Intro, down: i32) void {
+    fn scrollingTitle(intro: *Intro, down: i32) void {
         var offset: i32 = @intCast(@mod(@divFloor(s.frame, 1), 480));
 
         color(GRAY);
-        w4.text("- - - - - ", 180 + -offset - 12, down + 6);
-        w4.text("_ _ _ _ _", 180 + -offset - 13, down + 4);
-        title2("I N T R O", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
+
+        if (intro.easterEggTime()) {
+            w4.text("- - - - - - -", 180 + -offset - 12, down + 6);
+            w4.text("_ _ _ _ _ _ _", 180 + -offset - 13, down + 4);
+            title2("P \xC5 S K \xC4 G G", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
+        } else {
+            w4.text("- - - - - ", 180 + -offset - 12, down + 6);
+            w4.text("_ _ _ _ _", 180 + -offset - 13, down + 4);
+            title2("I N T R O", 180 + -offset - 18, down + 6, GRAY, PRIMARY);
+        }
     }
 
     fn debug(intro: *Intro, args: anytype) !void {
@@ -586,6 +592,10 @@ const Intro = struct {
         defer allocator.free(str);
 
         title(str, 20, 120, GRAY, WHITE);
+    }
+
+    fn easterEggTime(intro: *Intro) bool {
+        return intro.powerIsOn() and s.frame - intro.powerOnFrame > 270;
     }
 
     fn introBgPowerOn(p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
@@ -1002,6 +1012,22 @@ const Over = struct {
         }
 
         over.snowBehind();
+
+        { // Flying bird
+            const bird = Sprite.bird_flying;
+            const birdFrame = @as(u32, @mod(s.frame, 14) / 2);
+            color(0x3340);
+            w4.blitSub(bird.sprite, @intCast(592 - @mod(s.frame, 592) - 32), 30, 16, 16, birdFrame * 16, 0, bird.width, bird.flags);
+        }
+
+        {
+            const bird = Sprite.bird_eating;
+            const birdFrame = @as(u32, @mod(s.frame, 128) / 64);
+
+            color(0x3340);
+
+            w4.blitSub(bird.sprite, 24, 128, 16, 16, birdFrame * 16, 0, bird.width, bird.flags | w4.BLIT_FLIP_X);
+        }
 
         const fg: u16 = if (over.pressFlipped) PRIMARY else WHITE;
 
