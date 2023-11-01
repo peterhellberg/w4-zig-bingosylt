@@ -33,7 +33,6 @@ const Sprite = @import("Sprite.zig");
 // from the persistent storage by the game.
 const Disk = struct {
     si: u2,
-    energy: u4,
 };
 
 // Global state
@@ -55,7 +54,7 @@ const State = struct {
     }
 
     fn load(state: *State, defaultScene: u2) u2 {
-        var d: Disk = .{ .si = defaultScene, .energy = 15 };
+        var d: Disk = .{ .si = defaultScene };
 
         _ = w4.diskr(@ptrCast(&d), @sizeOf(@TypeOf(d)));
 
@@ -182,10 +181,7 @@ const State = struct {
         _ = w4.diskw(@ptrCast(&state.disk), @sizeOf(@TypeOf(state.disk)));
     }
 
-    disk: Disk = .{
-        .si = 0,
-        .energy = 0,
-    },
+    disk: Disk = .{ .si = 0 },
 
     frame: u32 = 0,
 
@@ -705,7 +701,7 @@ const Game = struct {
         w4.PALETTE.* = game.palette;
 
         s.life = 3;
-        s.disk.energy = 15;
+        game.ship.energy = 15;
 
         game.startup.play(0);
         game.startup.play(1);
@@ -721,20 +717,6 @@ const Game = struct {
     }
 
     fn update(game: *Game) !void {
-        if (s.button1()) {
-            // s.life -= 1;
-        }
-
-        if (s.button1()) {
-            s.disk.energy +|= 1;
-            s.save();
-        }
-
-        if (s.button2()) {
-            s.disk.energy -|= 1;
-            s.save();
-        }
-
         game.ship.update(game);
 
         if (s.life == 0) {
@@ -777,7 +759,7 @@ const Game = struct {
 
         game.ground(wx);
 
-        game.ship.draw(wx, 90, s.disk.energy);
+        game.ship.draw(wx, 90);
 
         { // Foreground
             game.stalactite(wx, 50, 25, 40);
@@ -790,7 +772,7 @@ const Game = struct {
             game.mountain(wx, 1, 4, 50, 70);
         }
 
-        game.hud(s.disk.energy);
+        game.hud();
     }
 
     fn mountainColor1(wx: i32, p: Vec, c: Vec, _: f32, _: f32, gamma: f32) u16 {
@@ -870,7 +852,7 @@ const Game = struct {
         }, wx, stalactiteColor);
     }
 
-    fn hud(game: *Game, energy: u4) void {
+    fn hud(game: *Game) void {
         // Background of the HUD
         {
             color(BLACK);
@@ -911,7 +893,7 @@ const Game = struct {
         }
 
         game.hudInputBar(4, 142);
-        game.hudEnergyBar(energy);
+        game.hudEnergyBar();
         game.hudInfoBar(s.totalDistance);
     }
 
@@ -969,15 +951,17 @@ const Game = struct {
         w4.text(str, x + 1, y + 1);
     }
 
-    fn hudEnergyBar(_: *Game, energy: usize) void {
+    fn hudEnergyBar(game: *Game) void {
+        const ship = game.ship;
+
         color(0x23);
-        rect(143, 0, 18, 21 + 6 * energy);
+        rect(143, 0, 18, 21 + (6 * @as(u32, game.ship.energy)));
 
         var eo: i32 = 0;
 
-        if (energy < 10) eo += 5;
+        if (ship.energy < 10) eo += 5;
 
-        if (anyString(energy)) |energyStr| {
+        if (anyString(ship.energy)) |energyStr| {
             color(WHITE);
             w4.text(energyStr, 144 + eo, 3);
         } else |_| {}
@@ -987,7 +971,7 @@ const Game = struct {
         const zap = Sprite.zap;
         zap.blit(133, 10, zap.flags);
 
-        for (0..energy) |i| {
+        for (0..ship.energy) |i| {
             const yo = @as(i32, @intCast(i)) * 6;
 
             color(GRAY);
@@ -1066,10 +1050,6 @@ const Game = struct {
 
     ship: Ship = .{},
 
-    shipOffset: i7 = 0,
-    shipSpeed: i5 = 0,
-    lastShipSpeed: i5 = 0,
-
     worldX: i32 = 0,
 };
 
@@ -1078,8 +1058,17 @@ const Ship = struct {
     offset: i7 = 0,
     speed: i5 = 0,
     lastSpeed: i5 = 0,
+    energy: u4 = 0,
 
     fn update(ship: *Ship, game: *Game) void {
+        if (s.button1()) {
+            ship.energy +|= 1;
+        }
+
+        if (s.button2()) {
+            ship.energy -|= 1;
+        }
+
         var shouldLog = false;
 
         if (ship.offset > -64) {
@@ -1107,8 +1096,8 @@ const Ship = struct {
             }
         }
 
-        if (s.disk.energy > 0) {
-            if (every(2) and s.buttonUpHeld() and s.disk.energy > 0) {
+        if (ship.energy > 0) {
+            if (every(2) and s.buttonUpHeld() and ship.energy > 0) {
                 ship.offset +|= 1;
                 shouldLog = true;
             }
@@ -1123,7 +1112,7 @@ const Ship = struct {
         , .{
             s.life,
             s.totalDistance,
-            s.disk.energy,
+            ship.energy,
             ship.offset,
             ship.speed,
         });
@@ -1135,23 +1124,23 @@ const Ship = struct {
         s.totalDistance +|= @abs(ship.speed);
 
         if (every(600)) {
-            if (@abs(ship.speed) > 0) s.disk.energy -|= 1;
+            if (@abs(ship.speed) > 0) ship.energy -|= 1;
         }
 
         if (every(60)) {
-            if (@abs(ship.speed) > 4) s.disk.energy -|= 1;
+            if (@abs(ship.speed) > 4) ship.energy -|= 1;
         }
 
-        if (s.disk.energy == 0 and every(3)) {
+        if (ship.energy == 0 and every(3)) {
             ship.offset -|= 1;
         }
     }
 
-    fn draw(ship: *Ship, wx: i32, x: i32, energy: u4) void {
+    fn draw(ship: *Ship, wx: i32, x: i32) void {
         const y = 80 - @as(i32, ship.offset);
         const f = @as(i32, @intCast(@mod(s.frame, 8)));
 
-        if (energy > 0) {
+        if (ship.energy > 0) {
             if ((ship.speed > 0 and ship.facingRight) or
                 (ship.speed < 0 and !ship.facingRight))
             {
