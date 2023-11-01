@@ -877,31 +877,37 @@ const Game = struct {
             rect(0, 0, 160, 20);
             rect(0, 20, 10, 140);
 
-            color(GRAY);
-            for (0..8) |x| {
-                for (0..160) |y| {
-                    if (@mod(x ^ y, 2) == 0) upx(x, y);
+            { // background pattern
+                color(GRAY);
+                for (0..8) |x| {
+                    for (0..160) |y| {
+                        if (@mod(x ^ y, 5) == 0) upx(x, y);
+                    }
+                }
+
+                for (8..142) |x| {
+                    for (0..19) |y| {
+                        if (@mod(x ^ y, 5) == 0) upx(x, y);
+                    }
                 }
             }
 
-            for (8..142) |x| {
-                for (0..19) |y| {
-                    if (@mod(x ^ y, 2) == 0) upx(x, y);
-                }
+            { // Orange border line
+                color(PRIMARY);
+                line(8, 160, 8, 22);
+                line(8, 21, 11, 18);
+                line(12, 18, 135, 18);
             }
 
-            color(PRIMARY);
-            line(8, 160, 8, 22);
-            line(8, 21, 11, 18);
-            line(12, 18, 135, 18);
+            { //Sylt logo
+                const sylt = Sprite.sylt;
 
-            const sylt = Sprite.sylt;
+                color(0x0003);
+                sylt.blit(2, 5, sylt.flags);
 
-            color(0x0003);
-            sylt.blit(2, 5, sylt.flags);
-
-            color(0x4301);
-            sylt.blit(1, 3, sylt.flags);
+                color(0x4301);
+                sylt.blit(1, 3, sylt.flags);
+            }
         }
 
         game.hudInputBar(4, 142);
@@ -965,7 +971,7 @@ const Game = struct {
 
     fn hudEnergyBar(_: *Game, energy: usize) void {
         color(0x23);
-        rect(143, 0, 18, 20 + 4 * energy);
+        rect(143, 0, 18, 21 + 6 * energy);
 
         var eo: i32 = 0;
 
@@ -981,9 +987,15 @@ const Game = struct {
         const zap = Sprite.zap;
         zap.blit(133, 10, zap.flags);
 
-        color(PRIMARY);
         for (0..energy) |i| {
-            hline(147, 16 + @as(i32, @intCast(i)) * 4, 10);
+            const yo = @as(i32, @intCast(i)) * 6;
+
+            color(GRAY);
+            hline(148, 14 + yo, 8);
+            hline(148, 17 + yo, 8);
+            color(PRIMARY);
+            hline(147, 15 + yo, 10);
+            hline(147, 16 + yo, 10);
         }
     }
 
@@ -1104,7 +1116,7 @@ const Ship = struct {
 
         if (shouldLog) log(
             \\💚 Life     | {d}
-            \\🏅 Distance | {d}
+            \\🌎 Distance | {d}
             \\⚡ Energy   | {d}
             \\✈️  Ship     | [ offset: {d}, speed: {d} ]
             \\
