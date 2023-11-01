@@ -194,9 +194,6 @@ const State = struct {
     glf: u8 = 0, // Gamepad pressed last frame
     gtf: u8 = 0, // Gamepad pressed this frame
 
-    life: i8 = 3, // Life
-    totalDistance: i32 = 0, // Some sort of game score
-
     // The inputs
     buttons: *const u8 = w4.MOUSE_BUTTONS,
     gamepad: *const u8 = w4.GAMEPAD1,
@@ -702,7 +699,8 @@ const Game = struct {
     fn enter(game: *Game) !void {
         w4.PALETTE.* = game.palette;
 
-        s.life = 3;
+        game.charges = 5;
+        game.distance = 0;
         game.ship.energy = 15;
 
         game.startup.play(0);
@@ -734,10 +732,19 @@ const Game = struct {
     fn update(game: *Game) !void {
         game.ship.update(game);
 
-        if (s.life == 0) {
+        if (game.isDead()) {
             game.died.play(2);
             s.transition(OVER);
         }
+
+        if (game.hudRechargeBtnClicked()) {
+            game.ship.energy +|= 5;
+            game.charges -|= 1;
+        }
+    }
+
+    fn isDead(game: *Game) bool {
+        return game.charges == 0 and game.ship.energy == 0 and game.ship.offset == -64;
     }
 
     fn draw(game: *Game) !void {
@@ -923,16 +930,42 @@ const Game = struct {
                 const sylt = Sprite.sylt;
 
                 color(0x0003);
-                sylt.blit(96, 4, sylt.flags);
+                sylt.blit(88, 4, sylt.flags);
 
                 color(0x4301);
-                sylt.blit(95, 3, sylt.flags);
+                sylt.blit(87, 3, sylt.flags);
             }
         }
 
         game.hudInputBar(4, 142);
         game.hudEnergyBar();
-        game.hudInfoBar(s.totalDistance);
+        game.hudInfoBar();
+        game.hudRechargeBtn();
+    }
+
+    fn hudRechargeBtnClicked(_: *Game) bool {
+        return s.mouseLeft() and s.x > 2 and s.y > 2 and s.x < 82 and s.y < 15;
+    }
+
+    fn hudRechargeBtn(game: *Game) void {
+        color(0x23);
+        if (game.hudRechargeBtnClicked()) {
+            rect(3, 3, 72, 14);
+            title("RECHARGE", 9, 6, GRAY, WHITE);
+        } else {
+            rect(2, 2, 72, 14);
+            title("RECHARGE", 8, 5, GRAY, PRIMARY);
+        }
+
+        const dots: usize = @intCast(game.charges);
+
+        color(0x41);
+        for (0..dots) |i| {
+            w4.oval(3, 40 + 13 * @as(i32, @intCast(i)), 8, 8);
+
+            color(0x01);
+            w4.text("C", 3, 40 + 13 * @as(i32, @intCast(i)));
+        }
     }
 
     fn hudInputBar(_: *Game, x: i32, y: i32) void {
@@ -1021,8 +1054,8 @@ const Game = struct {
         }
     }
 
-    fn hudInfoBar(game: *Game, score: i32) void {
-        if (anyString(score)) |scoreStr| {
+    fn hudInfoBar(game: *Game) void {
+        if (anyString(game.distance)) |scoreStr| {
             title(CURRENCY, 9, 20, BLACK, PRIMARY);
             title(scoreStr, 18, 20, BLACK, WHITE);
         } else |_| {} // Nothing to do really if we get an error
@@ -1080,6 +1113,8 @@ const Game = struct {
     ship: Ship = .{},
 
     worldX: i32 = 0,
+    distance: i32 = 0,
+    charges: u3 = 5,
 };
 
 const Ship = struct {
@@ -1090,15 +1125,15 @@ const Ship = struct {
     energy: u4 = 0,
 
     fn update(ship: *Ship, game: *Game) void {
-        ship.facingRight = (ship.speed > 0);
+        if (ship.offset > -64 and @abs(ship.speed) > 0) {
+            ship.facingRight = (ship.speed > 0);
+        }
 
         if (s.button1()) {
-            ship.energy +|= 1;
+            // TODO: Should we have some debug info?
         }
 
-        if (s.button2()) {
-            ship.energy -|= 1;
-        }
+        if (s.button2()) {}
 
         var shouldLog = false;
 
@@ -1133,32 +1168,27 @@ const Ship = struct {
         }
 
         if (shouldLog) log(
-            \\💚 Life     | {d}
             \\🌎 Distance | {d}
+            \\🔋 Charges  | {d}
             \\⚡ Energy   | {d}
-            \\✈️  Ship     | [ offset: {d}, speed: {d} ]
+            \\🚀 Speed    | {d}
+            \\   Offset   | {d}
             \\
         , .{
-            s.life,
-            s.totalDistance,
+            game.distance,
+            game.charges,
             ship.energy,
-            ship.offset,
             ship.speed,
+            ship.offset,
         });
 
         ship.lastSpeed = ship.speed;
 
         game.worldX +|= ship.speed;
+        game.distance +|= @abs(ship.speed);
 
-        s.totalDistance +|= @abs(ship.speed);
-
-        if (every(600)) {
-            if (@abs(ship.speed) > 0) ship.energy -|= 1;
-        }
-
-        if (every(60)) {
-            if (@abs(ship.speed) > 4) ship.energy -|= 1;
-        }
+        if (every(100) and @abs(ship.speed) > 2) ship.energy -|= 1;
+        if (every(200)) ship.energy -|= 1;
 
         if (ship.energy == 0 and every(3)) {
             ship.offset -|= 1;
@@ -1170,11 +1200,11 @@ const Ship = struct {
         const f = @as(i32, @intCast(@mod(s.frame, 8)));
 
         if (ship.energy > 0) {
+            const xo: i32 = if (ship.facingRight) 60 else 100;
+
             if ((ship.speed > 0 and ship.facingRight) or
                 (ship.speed < 0 and !ship.facingRight))
             {
-                const xo: i32 = if (ship.facingRight) 60 else 100;
-
                 const v1 = I(xo - f * @as(i32, ship.speed) - 3, y);
                 const v2 = I(xo - f - 1 * @as(i32, ship.speed), y - 1);
                 const v3 = I(xo - f * @as(i32, ship.speed), y);
@@ -1187,6 +1217,18 @@ const Ship = struct {
                 v3.offset(1, 3).line(v2.offset(1, 3));
                 v1.offset(-2, -2).oval(4, 3);
                 v1.offset(4, 2).oval(4, 3);
+            }
+
+            if (ship.speed == 0 and ship.offset > -64) {
+                if (ship.facingRight) {
+                    pixel(xo + 10, y + f);
+                    pixel(xo + 8, y + f * 2);
+                    pixel(xo + 6, y + f);
+                } else {
+                    pixel(xo - 10, y + f);
+                    pixel(xo - 8, y + f * 2);
+                    pixel(xo - 6, y + f);
+                }
             }
         }
 
