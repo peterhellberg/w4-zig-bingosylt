@@ -766,7 +766,7 @@ const Game = struct {
         game.hud(s.disk.energy);
     }
 
-    fn hud(_: *Game, energy: u4) void {
+    fn hud(game: *Game, energy: u4) void {
         // Background of the HUD
         {
             color(GRAY);
@@ -787,9 +787,6 @@ const Game = struct {
 
             w4.line(151, 23, 151, @intCast(32 + 5 * ue));
 
-            color(WHITE);
-            w4.oval(144, 23, 20, 13);
-
             const sylt = Sprite.sylt;
 
             color(0x0003);
@@ -799,83 +796,91 @@ const Game = struct {
             sylt.blit(3, 3, sylt.flags);
         }
 
-        // Input bar
-        {
-            color(0x34);
-            w4.rect(150, 1, 9, 9);
+        game.hudInputBar(-1, 151);
+        game.hudEnergyBar(energy);
+    }
 
-            {
-                color(0x03);
-                w4.rect(152, 3, 2, 2);
-                w4.rect(155, 3, 2, 2);
-                pixel(152, 6);
-                pixel(156, 6);
-                pixel(153, 7);
-                pixel(154, 7);
-                pixel(155, 7);
-            }
-            {
-                inputBarButton("\x80", s.button1Held());
-                inputBarButton("\x81", s.button2Held());
-                inputBarButton("\x84", s.buttonLeftHeld());
-                inputBarButton("\x85", s.buttonRightHeld());
-                inputBarButton("\x86", s.buttonUpHeld());
-                inputBarButton("\x87", s.buttonDownHeld());
-            }
-            {
-                color(GRAY);
-                pixel(150, 1);
-                pixel(150, 9);
-                pixel(158, 1);
-                pixel(158, 9);
-            }
-            {
-                color(BLACK);
-                pixel(151, 2);
-                pixel(151, 8);
-                pixel(157, 2);
-                pixel(157, 8);
-            }
+    fn hudInputBar(_: *Game, x: i32, y: i32) void {
+        color(0x34);
+        w4.rect(x, y, 9, 9);
+
+        {
+            color(0x03);
+            w4.rect(x + 2, y + 2, 2, 2);
+            w4.rect(x + 5, y + 2, 2, 2);
+            pixel(x + 2, y + 5);
+            pixel(x + 6, y + 5);
+            pixel(x + 3, y + 6);
+            pixel(x + 4, y + 6);
+            pixel(x + 5, y + 6);
         }
-
-        // The energy bar
         {
-            var eo: i32 = 0;
-
-            if (energy < 10) {
-                eo += 5;
-            }
-
-            _ = any(energy, 144 + eo, 25, 0, BLACK) catch unreachable;
-
-            if (every(30)) {
-                color(0x1320);
-            } else {
-                color(0x4320);
-            }
-
-            const zap = Sprite.zap;
-
-            zap.blit(146, 12, zap.flags);
-
-            for (0..energy) |e| {
-                const offset: i32 = @intCast(e);
-
-                color(BLACK);
-                w4.vline(151, 38 + (offset * 5), 2);
-                color(0x3331);
-                w4.rect(152, 37 + (offset * 5), 8, 4);
-            }
+            inputBarButton("\x80", x, y, s.button1Held());
+            inputBarButton("\x81", x, y, s.button2Held());
+            inputBarButton("\x84", x, y, s.buttonLeftHeld());
+            inputBarButton("\x85", x, y, s.buttonRightHeld());
+            inputBarButton("\x86", x, y, s.buttonUpHeld());
+            inputBarButton("\x87", x, y, s.buttonDownHeld());
+        }
+        {
+            color(GRAY);
+            pixel(x, 1);
+            pixel(x, 9);
+            pixel(x + 8, y);
+            pixel(x + 8, y + 8);
+        }
+        {
+            color(BLACK);
+            pixel(x + 1, y + 1);
+            pixel(x + 1, y + 7);
+            pixel(x + 7, y + 1);
+            pixel(x + 7, y + 7);
         }
     }
 
-    fn inputBarButton(str: []const u8, held: bool) void {
+    fn inputBarButton(str: []const u8, x: i32, y: i32, held: bool) void {
         if (!held) {
             return;
         }
 
         color(0x3431);
-        w4.text(str, 151, 2);
+        w4.text(str, x + 1, y + 1);
+    }
+
+    fn hudEnergyBar(_: *Game, energy: usize) void {
+        color(WHITE);
+        w4.oval(143, 21, 18, 14);
+
+        var eo: i32 = 0;
+
+        if (energy < 10) {
+            eo += 5;
+        }
+
+        if (anyString(energy)) |energyStr| {
+            color(BLACK);
+            w4.text(energyStr, 144 + eo, 25);
+        } else |_| {
+            // Nothing to do really if we get an error
+        }
+
+        if (every(30)) {
+            color(0x1320);
+        } else {
+            color(0x4320);
+        }
+
+        const zap = Sprite.zap;
+        zap.blit(143, 10, zap.flags);
+
+        for (0..energy) |e| {
+            const offset: i32 = @intCast(e);
+
+            color(BLACK);
+            w4.vline(151, 38 + (offset * 5), 2);
+            color(0x3331);
+            w4.rect(152, 37 + (offset * 5), 8, 4);
+        }
     }
 
     // Tangerine Noir
@@ -954,6 +959,18 @@ const Over = struct {
         .mode = 3,
     },
 
+    birdSound: Tone = Tone{
+        .freq1 = 980,
+        .freq2 = 800,
+        .attack = 10,
+        .decay = 0,
+        .sustain = 5,
+        .release = 20,
+        .peak = 8,
+        .volume = 6,
+        .mode = 2,
+    },
+
     snowParticlesOver: [64]Particle = [_]Particle{.{}} ** 64,
     snowParticlesBehind: [128]Particle = [_]Particle{.{}} ** 128,
 
@@ -996,6 +1013,14 @@ const Over = struct {
         if (every(120)) over.deathFlipped = !over.deathFlipped;
         if (every(30)) over.pressFlipped = !over.pressFlipped;
         if (every(400)) over.sound.play(2);
+
+        if (s.mouseLeftHeld()) {
+            const v1 = V(20, 128).offset(10, 5);
+            const v2 = V(134, 138).offset(5, 10);
+
+            if (s.m.distance(v1) < 8) over.birdSound.play(0);
+            if (s.m.distance(v2) < 8) over.birdSound.play(1);
+        }
     }
 
     fn draw(over: *Over) !void {
@@ -1015,6 +1040,7 @@ const Over = struct {
         over.snowBehind();
 
         flyingBirds(s.frame);
+
         eatingBird(s.frame, 24, 128);
         idleBird(s.frame, 134, 138);
 
@@ -1336,6 +1362,13 @@ fn dotline(a: Vec, b: Vec, dotSize: u32, points: []const f32) void {
     for (points) |p| {
         a.lerp(b, p).sub(offset).rect(dotSize, dotSize);
     }
+}
+
+fn anyString(arg: anytype) ![]u8 {
+    const str = try std.fmt.allocPrint(allocator, "{any}", .{arg});
+    defer allocator.free(str);
+
+    return str;
 }
 
 fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
