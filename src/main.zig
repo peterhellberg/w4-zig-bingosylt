@@ -4,6 +4,7 @@ const std = @import("std");
 const w4 = @import("wasm4.zig");
 
 const rect = w4.rect;
+const line = w4.line;
 const hline = w4.hline;
 const vline = w4.vline;
 
@@ -894,11 +895,11 @@ const Game = struct {
             hline(145, @intCast(29 + 5 * ue), 2);
 
             color(PRIMARY);
-            w4.line(8, 160, 8, 22);
-            w4.line(8, 21, 11, 18);
-            w4.line(12, 18, 135, 18);
+            line(8, 160, 8, 22);
+            line(8, 21, 11, 18);
+            line(12, 18, 135, 18);
 
-            w4.line(150, 23, 151, @intCast(32 + 5 * ue));
+            line(150, 23, 151, @intCast(32 + 5 * ue));
 
             const sylt = Sprite.sylt;
 
@@ -1150,14 +1151,28 @@ const Ship = struct {
         const y = 80 - @as(i32, ship.offset);
         const f = @as(i32, @intCast(@mod(s.frame, 8)));
 
-        if (ship.facingRight) {
-            if (ship.speed > 0) {
-                color(PRIMARY);
-                vpx(I(80 - f * @as(i32, ship.speed) - 3, y));
-                vpx(I(80 - f - 1 * @as(i32, ship.speed), y));
-                vpx(I(80 - f * @as(i32, ship.speed), y + 1));
-            }
+        if (s.disk.energy > 0) {
+            if ((ship.speed > 0 and ship.facingRight) or
+                (ship.speed < 0 and !ship.facingRight))
+            {
+                const xo: i32 = if (ship.facingRight) 60 else 100;
 
+                const v1 = I(xo - f * @as(i32, ship.speed) - 3, y);
+                const v2 = I(xo - f - 1 * @as(i32, ship.speed), y - 1);
+                const v3 = I(xo - f * @as(i32, ship.speed), y);
+
+                color(GRAY);
+                v1.line(v2);
+                v1.offset(1, 3).line(v2.offset(1, 3));
+                color(WHITE);
+                v3.line(v2);
+                v3.offset(1, 3).line(v2.offset(1, 3));
+                v1.offset(-2, -2).oval(4, 3);
+                v1.offset(4, 2).oval(4, 3);
+            }
+        }
+
+        if (ship.facingRight) {
             triangle(.{
                 I(x - 25, y - 5),
                 I(x, y),
@@ -1165,23 +1180,19 @@ const Ship = struct {
             }, wx, triPRIMARY);
 
             triangle(.{
-                I(x - 23, y - 6),
-                I(x - 4, y),
+                I(x - 21, y - 6),
+                I(x - 5, y + 1),
                 I(x - 18, y + 1),
             }, wx, triWHITE);
+
+            color(GRAY);
+            line(x - 19, y + 6, x, y);
 
             if (ship.speed > 0) {
                 color(GRAY);
                 vpx(I(78 - f * @as(i32, ship.speed), y - 3));
             }
         } else {
-            if (ship.speed < 0) {
-                color(PRIMARY);
-                vpx(I(80 - f * @as(i32, ship.speed) - 3, y));
-                vpx(I(80 - f - 1 * @as(i32, ship.speed), y));
-                vpx(I(80 - f * @as(i32, ship.speed), y + 1));
-            }
-
             triangle(.{
                 I(-20 + x, y),
                 I(-20 + x + 25, y - 5),
@@ -1189,10 +1200,13 @@ const Ship = struct {
             }, wx, triPRIMARY);
 
             triangle(.{
-                I(-20 + x + 4, y),
-                I(-20 + x + 23, y - 6),
+                I(-20 + x + 5, y),
+                I(-20 + x + 21, y - 6),
                 I(-20 + x + 18, y + 1),
             }, wx, triWHITE);
+
+            color(GRAY);
+            line(x - 20, y, x, y + 6);
 
             if (ship.speed < 0) {
                 color(GRAY);
