@@ -3,6 +3,10 @@ const std = @import("std");
 // WASM-4
 const w4 = @import("wasm4.zig");
 
+const rect = w4.rect;
+const hline = w4.hline;
+const vline = w4.vline;
+
 // 640 ought to be enough for anybody.
 var memory: [640]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&memory);
@@ -50,7 +54,7 @@ const State = struct {
     }
 
     fn load(state: *State, defaultScene: u2) u2 {
-        var d: Disk = .{ .si = defaultScene, .energy = 0 };
+        var d: Disk = .{ .si = defaultScene, .energy = 15 };
 
         _ = w4.diskr(@ptrCast(&d), @sizeOf(@TypeOf(d)));
 
@@ -194,7 +198,7 @@ const State = struct {
     gtf: u8 = 0, // Gamepad pressed this frame
 
     life: i8 = 3, // Life
-    score: u8 = 0, // Some sort of game score
+    totalDistance: i32 = 0, // Some sort of game score
 
     // The inputs
     buttons: *const u8 = w4.MOUSE_BUTTONS,
@@ -343,8 +347,8 @@ const Intro = struct {
 
     fn background(intro: *Intro) void {
         if (intro.powerIsOn()) {
-            triangle(T(-1, -1, 161, -1, 161, 161), introBgPowerOn);
-            triangle(T(-1, -1, 161, 161, -1, 161), introBgPowerOn);
+            triangle(T(-1, -1, 161, -1, 161, 161), 0, introBgPowerOn);
+            triangle(T(-1, -1, 161, 161, -1, 161), 0, introBgPowerOn);
         }
 
         for (0..160) |y| {
@@ -599,7 +603,8 @@ const Intro = struct {
         return intro.powerIsOn() and s.frame - intro.powerOnFrame > 270;
     }
 
-    fn introBgPowerOn(p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
+    fn introBgPowerOn(wx: i32, p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
+        _ = wx;
         const d = p.distance(c);
         const x = p.xu();
         const y = p.yu();
@@ -699,75 +704,42 @@ const Game = struct {
         w4.PALETTE.* = game.palette;
 
         s.life = 3;
+        s.disk.energy = 15;
 
         game.startup.play(0);
         game.startup.play(1);
         game.startup.play(2);
+
+        for (game.stars, 0..) |_, i| {
+            const r = rnd.random();
+
+            game.stars[i][0] = r.intRangeLessThan(i32, 10, 160);
+            game.stars[i][1] = r.intRangeLessThan(i32, 25, 160);
+            game.stars[i][2] = if (r.boolean()) 1 else 0;
+        }
     }
 
     fn update(game: *Game) !void {
-        var shouldLog = false;
-
         if (s.button1()) {
             // s.life -= 1;
-            s.score += 1;
-            shouldLog = true;
         }
 
         if (s.button1()) {
             s.disk.energy +|= 1;
             s.save();
-            shouldLog = true;
         }
 
         if (s.button2()) {
             s.disk.energy -|= 1;
             s.save();
-            shouldLog = true;
         }
 
-        if (every(6) and s.buttonRightHeld()) {
-            game.shipSpeed +|= if (game.shipSpeed < 0) 2 else 1;
-            shouldLog = true;
-        }
-
-        if (every(6) and s.buttonLeftHeld()) {
-            game.shipSpeed -|= if (game.shipSpeed > 0) 2 else 1;
-            shouldLog = true;
-        }
-
-        if (every(2) and s.buttonDownHeld()) {
-            game.shipOffset -|= 1;
-            shouldLog = true;
-        }
-
-        if (every(2) and s.buttonUpHeld()) {
-            game.shipOffset +|= 1;
-            shouldLog = true;
-        }
-
-        if (shouldLog) log(
-            \\💚 Health = {d}
-            \\🏅 Points = {d}
-            \\⚡ Energy = {d}
-            \\✈️  Ship   = [ offset: {d}, speed: {d} ]
-            \\
-        , .{
-            s.life,
-            s.score,
-            s.disk.energy,
-            game.shipOffset,
-            game.shipSpeed,
-        });
+        game.ship.update(game);
 
         if (s.life == 0) {
             game.died.play(2);
             s.transition(OVER);
         }
-
-        game.lastShipSpeed = game.shipSpeed;
-
-        game.worldX +|= game.shipSpeed;
     }
 
     fn draw(game: *Game) !void {
@@ -778,10 +750,20 @@ const Game = struct {
         { // Background
 
             { // Stars
-                pixel(15, 60);
-                pixel(30, 30);
-                pixel(70, 60);
-                pixel(90, 140);
+                for (game.stars) |sp| {
+                    const rf = rnd.random().float(f32);
+
+                    color(if (rf < 0.01) WHITE else GRAY);
+
+                    if (sp[2] == 1) {
+                        pixel(sp[0] - 1, sp[1]);
+                        pixel(sp[0] + 1, sp[1]);
+                        pixel(sp[0], sp[1] - 1);
+                        pixel(sp[0], sp[1] + 1);
+                    } else {
+                        pixel(sp[0], sp[1]);
+                    }
+                }
             }
 
             game.mountain(wx, 2, 100, 20, 50);
@@ -794,7 +776,7 @@ const Game = struct {
 
         game.ground(wx);
 
-        game.ship(wx, 90);
+        game.ship.draw(wx, 90);
 
         { // Foreground
             game.stalactite(wx, 50, 25, 40);
@@ -810,48 +792,27 @@ const Game = struct {
         game.hud(s.disk.energy);
     }
 
-    fn mountainColor(p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16 {
-        if (alpha > 0.96) {
-            color(PRIMARY);
-            p.offset(-4, -4).oval(8, 8);
-
-            return PRIMARY;
+    fn mountainColor1(wx: i32, p: Vec, c: Vec, _: f32, _: f32, gamma: f32) u16 {
+        if (gamma > 0.2 and p.distance(c) > 25) {
+            return WHITE;
         }
+        return @intCast(@divFloor(@mod((wx - p.xi()) ^ p.yi(), 8), 2) + 1);
+    }
 
-        if (beta > 0.96) {
-            color(PRIMARY);
-            p.offset(-3, -3).rect(6, 6);
-
-            return PRIMARY;
-        }
-
-        if (gamma > 0.96) {
-            color(PRIMARY);
-            p.offset(-3, -3).rect(6, 6);
-
-            return PRIMARY;
-        }
-
-        if (alpha > 0.95) {
-            return PRIMARY;
-        }
-
-        if (p.distance(c) > 20) {
+    fn mountainColor2(wx: i32, p: Vec, c: Vec, _: f32, _: f32, gamma: f32) u16 {
+        if (gamma > 0.2 and p.distance(c) > 25) {
             return WHITE;
         }
 
-        if (p.distance(c) > 10) {
+        return @intCast(@divFloor(@mod((@divFloor(wx, 2) - p.xi()) ^ p.yi(), 6), 2) + 1);
+    }
+
+    fn mountainColor3(wx: i32, p: Vec, c: Vec, _: f32, _: f32, gamma: f32) u16 {
+        if (gamma > 0.2 and p.distance(c) > 25) {
             return WHITE;
         }
 
-        return GRAY;
-
-        // const p = V(0, 0).add(c);
-
-        // const x = p.xu();
-        // const y = p.yu();
-
-        // return @mod(x ^ y, 8) / 2 + 1;
+        return @intCast(@divFloor(@mod((@divFloor(wx, 3) - p.xi()) ^ p.yi(), 8), 2) + 1);
     }
 
     fn mountain(_: *Game, wx: i32, FOO: i32, x: i32, width: i32, height: i32) void {
@@ -859,13 +820,42 @@ const Game = struct {
             I(@divFloor(wx, FOO) + x, 150),
             I(@divFloor(wx, FOO) + x + @divFloor(width, 2), 150 - height),
             I(@divFloor(wx, FOO) + x + width, 150),
-        }, mountainColor);
+        }, wx, switch (FOO) {
+            1 => mountainColor1,
+            2 => mountainColor2,
+            3 => mountainColor3,
+            else => triPRIMARY,
+        });
     }
 
     fn ground(_: *Game, wx: i32) void {
         _ = wx;
         color(WHITE);
         I(10, 150).rect(150, 10);
+    }
+
+    fn stalactiteColor(wx: i32, p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
+        const d = p.distance(c);
+        const x = wx - p.xu();
+        const y = p.yu();
+
+        if (d == 3) {
+            return BLACK;
+        }
+
+        if (@mod(x, 5) == 0 and @mod(y ^ x, 4) == 1) {
+            if (d < 11 and @mod(s.frame, 24) < 12) {
+                return PRIMARY;
+            }
+
+            if (@mod(x * y, 4) < 1) {
+                return WHITE;
+            }
+
+            return BLACK;
+        } else {
+            return GRAY;
+        }
     }
 
     fn stalactite(_: *Game, wx: i32, x: i32, width: u32, height: u32) void {
@@ -876,91 +866,65 @@ const Game = struct {
             I(wx + x - o, 19),
             I(wx + x + (w - o), 19),
             I(wx + x + @divFloor(w, 4), 19 + height),
-        }, triColor);
-    }
-
-    fn ship(game: *Game, wx: i32, x: i32) void {
-        _ = wx;
-        const y = 80 - @as(i32, game.shipOffset);
-
-        const f = @as(i32, @intCast(@mod(s.frame, 10)));
-        color(PRIMARY);
-
-        vpx(I(80 - f * @as(i32, game.shipSpeed), y));
-
-        if (game.shipSpeed >= 0) {
-            color(GRAY);
-
-            triangle(.{
-                I(x - 25, y - 5),
-                I(x, y),
-                I(x - 20, y + 6),
-            }, triPRIMARY);
-
-            triangle(.{
-                I(x - 23, y - 6),
-                I(x - 4, y),
-                I(x - 18, y + 1),
-            }, triWHITE);
-        } else {
-            color(GRAY);
-
-            triangle(.{
-                I(-20 + x, y),
-                I(-20 + x + 25, y - 5),
-                I(-20 + x + 20, y + 6),
-            }, triPRIMARY);
-
-            triangle(.{
-                I(-20 + x + 4, y),
-                I(-20 + x + 23, y - 6),
-                I(-20 + x + 18, y + 1),
-            }, triWHITE);
-        }
+        }, wx, stalactiteColor);
     }
 
     fn hud(game: *Game, energy: u4) void {
         // Background of the HUD
         {
-            color(GRAY);
-            w4.rect(0, 0, 160, 20);
-            w4.rect(0, 20, 10, 140);
+            color(BLACK);
+            rect(0, 0, 160, 20);
+            rect(0, 20, 10, 140);
 
-            pixel(149, 20);
-            pixel(10, 20);
+            color(GRAY);
+            for (0..8) |x| {
+                for (0..160) |y| {
+                    if (@mod(x ^ y, 2) == 0) upx(x, y);
+                }
+            }
+
+            for (8..142) |x| {
+                for (0..19) |y| {
+                    if (@mod(x ^ y, 2) == 0) upx(x, y);
+                }
+            }
 
             const ue: u32 = energy;
-            w4.rect(150, 20, 10, 16 + 5 * ue);
-            w4.hline(145, @intCast(29 + 5 * ue), 2);
+            rect(150, 20, 10, 16 + 5 * ue);
+            hline(145, @intCast(29 + 5 * ue), 2);
 
             color(PRIMARY);
             w4.line(8, 160, 8, 22);
             w4.line(8, 21, 11, 18);
-            w4.line(12, 18, 148, 18);
+            w4.line(12, 18, 135, 18);
 
-            w4.line(151, 23, 151, @intCast(32 + 5 * ue));
+            w4.line(150, 23, 151, @intCast(32 + 5 * ue));
 
             const sylt = Sprite.sylt;
 
             color(0x0003);
-            sylt.blit(4, 5, sylt.flags);
+            sylt.blit(2, 5, sylt.flags);
 
             color(0x4301);
-            sylt.blit(3, 3, sylt.flags);
+            sylt.blit(1, 3, sylt.flags);
         }
 
-        game.hudInputBar(-1, 151);
+        game.hudInputBar(4, 142);
         game.hudEnergyBar(energy);
+        game.hudInfoBar(s.totalDistance);
     }
 
     fn hudInputBar(_: *Game, x: i32, y: i32) void {
-        color(0x34);
-        w4.rect(x, y, 9, 9);
+        color(0x31);
+        rect(x, y, 9, 9);
 
         {
-            color(0x03);
-            w4.rect(x + 2, y + 2, 2, 2);
-            w4.rect(x + 5, y + 2, 2, 2);
+            color(0x43);
+            rect(x + 2, y + 2, 2, 2);
+            rect(x + 5, y + 2, 2, 2);
+            pixel(x + 3, y + 3);
+            pixel(x + 6, y + 3);
+
             pixel(x + 2, y + 5);
             pixel(x + 6, y + 5);
             pixel(x + 3, y + 6);
@@ -976,18 +940,22 @@ const Game = struct {
             inputBarButton("\x87", x, y, s.buttonDownHeld());
         }
         {
-            color(GRAY);
-            pixel(x, 1);
-            pixel(x, 9);
-            pixel(x + 8, y);
-            pixel(x + 8, y + 8);
-        }
-        {
             color(BLACK);
             pixel(x + 1, y + 1);
             pixel(x + 1, y + 7);
             pixel(x + 7, y + 1);
             pixel(x + 7, y + 7);
+        }
+        {
+            color(GRAY);
+            pixel(x, y);
+            pixel(x, y + 8);
+            color(PRIMARY);
+            hline(x + 4, y - 1, 4);
+            pixel(x + 8, y);
+            vline(x + 9, y + 1, 7);
+            pixel(x + 8, y + 8);
+            hline(x + 4, y + 9, 4);
         }
     }
 
@@ -1001,8 +969,8 @@ const Game = struct {
     }
 
     fn hudEnergyBar(_: *Game, energy: usize) void {
-        color(WHITE);
-        w4.oval(143, 21, 18, 14);
+        color(0x23);
+        rect(143, 11, 18, 11);
 
         var eo: i32 = 0;
 
@@ -1011,29 +979,42 @@ const Game = struct {
         }
 
         if (anyString(energy)) |energyStr| {
-            color(BLACK);
-            w4.text(energyStr, 144 + eo, 25);
+            color(WHITE);
+            w4.text(energyStr, 143 + eo, 2);
         } else |_| {
             // Nothing to do really if we get an error
         }
 
-        if (every(30)) {
-            color(0x1320);
-        } else {
-            color(0x4320);
-        }
+        color(if (every(30)) 0x1320 else 0x4320);
 
         const zap = Sprite.zap;
-        zap.blit(143, 10, zap.flags);
+        zap.blit(133, 10, zap.flags);
 
         for (0..energy) |e| {
             const offset: i32 = @intCast(e);
 
-            color(BLACK);
-            w4.vline(151, 38 + (offset * 5), 2);
             color(0x3331);
-            w4.rect(152, 37 + (offset * 5), 8, 4);
+            rect(152, 37 + (offset * 5), 8, 4);
         }
+    }
+
+    fn hudInfoBar(game: *Game, score: i32) void {
+        if (anyString(score)) |scoreStr| {
+            title(CURRENCY, 9, 20, BLACK, PRIMARY);
+            title(scoreStr, 18, 20, BLACK, WHITE);
+        } else |_| {} // Nothing to do really if we get an error
+
+        if (anyString(game.worldX)) |xStr| {
+            title("@", 9, 28, BLACK, PRIMARY);
+            title(xStr, 18, 28, BLACK, WHITE);
+        } else |_| {} // Nothing to do really if we get an error
+    }
+
+    fn scoreString(arg: anytype) ![]u8 {
+        const str = try std.fmt.allocPrint(allocator, "{any}", .{arg});
+        defer allocator.free(str);
+
+        return str;
     }
 
     // Tangerine Noir
@@ -1043,6 +1024,17 @@ const Game = struct {
         0x393541, // Gray
         0x191a1f, // Black
         0xee964b, // Tangerine
+
+        // https://lospec.com/palette-list/pen-n-paper
+        // 0xe4dbba,
+        // 0xa4929a,
+        // 0x4f3a54,
+        // 0x260d1c,
+
+        // 0xdadada,
+        // 0x30303d,
+        // 0x141319,
+        // 0xee964b, // Tangerine
     },
 
     startup: Tone = Tone{
@@ -1069,6 +1061,10 @@ const Game = struct {
         .mode = 1,
     },
 
+    stars: [80][3]i32 = .{.{ 0, 0, 0 }} ** 80,
+
+    ship: Ship = .{},
+
     shipOffset: i7 = 0,
     shipSpeed: i5 = 0,
     lastShipSpeed: i5 = 0,
@@ -1076,25 +1072,135 @@ const Game = struct {
     worldX: i32 = 0,
 };
 
-fn triColor(p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
-    const d = p.distance(c);
-    const x = p.xu();
-    const y = p.yu();
+const Ship = struct {
+    facingRight: bool = true,
+    offset: i7 = 0,
+    speed: i5 = 0,
+    lastSpeed: i5 = 0,
 
-    if (d < @abs(@as(f32, @floatFromInt(@mod(s.frame, 96))) / 32 - 16) and @mod(x, 2) == 0 and @mod(y, 2) == 1) {
-        if (d < 11 and @mod(s.frame, 24) < 12) {
-            return PRIMARY;
+    fn update(ship: *Ship, game: *Game) void {
+        var shouldLog = false;
+
+        if (ship.offset > -64) {
+            if (every(6) and s.buttonRightHeld()) {
+                ship.speed +|= if (ship.speed < 0) 2 else 1;
+                shouldLog = true;
+                ship.facingRight = true;
+            }
+
+            if (every(6) and s.buttonLeftHeld()) {
+                ship.speed -|= if (ship.speed > 0) 2 else 1;
+                shouldLog = true;
+                ship.facingRight = false;
+            }
+
+            if (every(2) and s.buttonDownHeld()) {
+                ship.offset -|= 1;
+                shouldLog = true;
+            }
+        } else {
+            if (ship.facingRight) {
+                if (ship.speed > 0) ship.speed -|= 1 else ship.speed = 0;
+            } else {
+                if (ship.speed < 0) ship.speed +|= 1 else ship.speed = 0;
+            }
         }
 
-        if (@mod(x * y, 4) < 1) {
-            return WHITE;
+        if (s.disk.energy > 0) {
+            if (every(2) and s.buttonUpHeld() and s.disk.energy > 0) {
+                ship.offset +|= 1;
+                shouldLog = true;
+            }
         }
 
-        return BLACK;
-    } else {
-        return GRAY;
+        if (shouldLog) log(
+            \\💚 Life     | {d}
+            \\🏅 Distance | {d}
+            \\⚡ Energy   | {d}
+            \\✈️  Ship     | [ offset: {d}, speed: {d} ]
+            \\
+        , .{
+            s.life,
+            s.totalDistance,
+            s.disk.energy,
+            ship.offset,
+            ship.speed,
+        });
+
+        ship.lastSpeed = ship.speed;
+
+        game.worldX +|= ship.speed;
+
+        s.totalDistance +|= @abs(ship.speed);
+
+        if (every(600)) {
+            if (@abs(ship.speed) > 0) s.disk.energy -|= 1;
+        }
+
+        if (every(60)) {
+            if (@abs(ship.speed) > 4) s.disk.energy -|= 1;
+        }
+
+        if (s.disk.energy == 0 and every(3)) {
+            ship.offset -|= 1;
+        }
     }
-}
+
+    fn draw(ship: *Ship, wx: i32, x: i32) void {
+        const y = 80 - @as(i32, ship.offset);
+        const f = @as(i32, @intCast(@mod(s.frame, 8)));
+
+        if (ship.facingRight) {
+            if (ship.speed > 0) {
+                color(PRIMARY);
+                vpx(I(80 - f * @as(i32, ship.speed) - 3, y));
+                vpx(I(80 - f - 1 * @as(i32, ship.speed), y));
+                vpx(I(80 - f * @as(i32, ship.speed), y + 1));
+            }
+
+            triangle(.{
+                I(x - 25, y - 5),
+                I(x, y),
+                I(x - 20, y + 6),
+            }, wx, triPRIMARY);
+
+            triangle(.{
+                I(x - 23, y - 6),
+                I(x - 4, y),
+                I(x - 18, y + 1),
+            }, wx, triWHITE);
+
+            if (ship.speed > 0) {
+                color(GRAY);
+                vpx(I(78 - f * @as(i32, ship.speed), y - 3));
+            }
+        } else {
+            if (ship.speed < 0) {
+                color(PRIMARY);
+                vpx(I(80 - f * @as(i32, ship.speed) - 3, y));
+                vpx(I(80 - f - 1 * @as(i32, ship.speed), y));
+                vpx(I(80 - f * @as(i32, ship.speed), y + 1));
+            }
+
+            triangle(.{
+                I(-20 + x, y),
+                I(-20 + x + 25, y - 5),
+                I(-20 + x + 20, y + 6),
+            }, wx, triPRIMARY);
+
+            triangle(.{
+                I(-20 + x + 4, y),
+                I(-20 + x + 23, y - 6),
+                I(-20 + x + 18, y + 1),
+            }, wx, triWHITE);
+
+            if (ship.speed < 0) {
+                color(GRAY);
+                vpx(I(78 - f * @as(i32, ship.speed), y - 3));
+            }
+        }
+    }
+};
 
 const Over = struct {
     // Tangerine Noir
@@ -1228,7 +1334,7 @@ const Over = struct {
         color(BLACK);
         V(43, 137).rect(2, 2);
 
-        triangle(T(30, 95, 40, 129, 16, 132), triFir);
+        triangle(T(30, 95, 40, 129, 16, 132), 0, triFir);
 
         color(0x20);
         fir.blit(-10, 116, fir.flags);
@@ -1356,29 +1462,37 @@ fn every(f: u32) bool {
     return @mod(s.frame, f) == 0;
 }
 
+const TM = "\xAE";
+const CURRENCY = "\xA4";
+
 // The colors
 const WHITE: u16 = 0x0001;
 const GRAY: u16 = 0x0002;
 const BLACK: u16 = 0x0003;
 const PRIMARY: u16 = 0x0004;
 
-fn triWHITE(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+fn triWHITE(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    _ = wx;
     return WHITE;
 }
 
-fn triGRAY(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+fn triGRAY(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    _ = wx;
     return GRAY;
 }
 
-fn triBLACK(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+fn triBLACK(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    _ = wx;
     return BLACK;
 }
 
-fn triPRIMARY(_: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+fn triPRIMARY(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    _ = wx;
     return PRIMARY;
 }
 
-fn triFir(p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+fn triFir(wx: i32, p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
+    _ = wx;
     const x = p.xu();
     const y = p.yu();
 
@@ -1463,9 +1577,9 @@ fn centroid(t: [3]Vec) Vec {
     );
 }
 
-const ColorFn = fn (p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16;
+const ColorFn = fn (wx: i32, p: Vec, c: Vec, alpha: f32, beta: f32, gamma: f32) u16;
 
-fn triangle(t: [3]Vec, colorFn: *const ColorFn) void {
+fn triangle(t: [3]Vec, wx: i32, colorFn: *const ColorFn) void {
     const area = Vec.cross(t[0], t[1], t[2]);
     const center = centroid(t);
 
@@ -1492,7 +1606,7 @@ fn triangle(t: [3]Vec, colorFn: *const ColorFn) void {
                 const beta = w1 / area;
                 const gamma = w2 / area;
 
-                color(colorFn(pos, center, alpha, beta, gamma));
+                color(colorFn(wx, pos, center, alpha, beta, gamma));
                 pixel(@intCast(x), @intCast(y));
             }
         }
