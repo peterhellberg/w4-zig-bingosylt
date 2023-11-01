@@ -12,7 +12,7 @@ pub fn new(vx: f32, vy: f32) Self {
     return .{ .data = [2]f32{ vx, vy } };
 }
 
-pub fn unew(vx: usize, vy: usize) Self {
+pub fn inew(vx: anytype, vy: anytype) Self {
     return .{ .data = [2]f32{ @floatFromInt(vx), @floatFromInt(vy) } };
 }
 
@@ -177,11 +177,11 @@ pub fn dot(self: Self, other: Self) f32 {
 }
 
 // Return the cross product between three given vector.
-pub fn cross(p: Self, a: Self, b: Self) f32 {
+pub fn cross(a: Self, b: Self, c: Self) f32 {
     const ab: Self = .{ .data = .{ b.x() - a.x(), b.y() - a.y() } };
-    const ap: Self = .{ .data = .{ p.x() - a.x(), p.y() - a.y() } };
+    const ac: Self = .{ .data = .{ c.x() - a.x(), c.y() - a.y() } };
 
-    return ab.x() * ap.y() - ab.y() * ap.x();
+    return ab.x() * ac.y() - ab.y() * ac.x();
 }
 
 /// Linear interpolation between two vectors
