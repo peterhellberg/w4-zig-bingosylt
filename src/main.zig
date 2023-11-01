@@ -750,7 +750,7 @@ const Game = struct {
     fn draw(game: *Game) !void {
         clear(BLACK);
 
-        const wx: i32 = 0 + -@divFloor(game.worldX, 3);
+        const wx: i32 = -@divFloor(game.worldX, 15);
 
         { // Background
             const r = rnd.random();
@@ -1118,8 +1118,8 @@ const Game = struct {
 const Ship = struct {
     facingRight: bool = true,
     offset: i7 = 0,
-    speed: i5 = 1,
-    lastSpeed: i5 = 0,
+    speed: i6 = 1,
+    lastSpeed: i6 = 0,
     energy: u4 = 0,
 
     fn update(ship: *Ship, game: *Game) void {
