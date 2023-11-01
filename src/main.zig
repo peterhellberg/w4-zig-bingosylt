@@ -946,7 +946,7 @@ const Game = struct {
     }
 
     fn hudRechargeBtn(game: *Game) void {
-        color(0x43);
+        color(0x13);
         if (game.hudRechargeBtnClicked() or s.button2()) {
             rect(3, 3, 78, 14);
             title("\x81RECHARGE", 5, 6, GRAY, WHITE);
@@ -957,12 +957,18 @@ const Game = struct {
 
         const dots: usize = @intCast(game.charges);
 
-        color(0x41);
         for (0..dots) |i| {
-            w4.oval(3, 40 + 13 * @as(i32, @intCast(i)), 8, 8);
+            const dy = 55 + 13 * @as(i32, @intCast(i));
+
+            color(WHITE);
+            line(2, 16, 2, dy + 3);
+
+            color(0x41);
+            w4.oval(5, dy, 8, 8);
+            hline(2, dy + 3, 5);
 
             color(0x01);
-            w4.text("C", 3, 40 + 13 * @as(i32, @intCast(i)));
+            w4.text("C", 5, 55 + 13 * @as(i32, @intCast(i)));
         }
     }
 
@@ -1118,7 +1124,7 @@ const Game = struct {
 const Ship = struct {
     facingRight: bool = true,
     offset: i7 = 0,
-    speed: i6 = 1,
+    speed: i6 = 2,
     lastSpeed: i6 = 0,
     energy: u4 = 0,
 
