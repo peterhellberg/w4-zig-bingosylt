@@ -348,12 +348,14 @@ const Intro = struct {
             triangle(T(-1, -1, 161, 161, -1, 161), 0, introBgPowerOn);
         }
 
+        const r = rnd.random();
+
         for (0..160) |y| {
             for (0..160) |x| {
                 if (@mod(x ^ y, 5) == 0) {
                     if (intro.powerIsOn()) {
-                        const r = rnd.random().float(f32);
-                        if (r < 0.001) {
+                        const rf = r.float(f32);
+                        if (rf < 0.001) {
                             color(0x3310);
                             I(x, y).oval(3, 3);
                         }
@@ -710,9 +712,22 @@ const Game = struct {
         const r = rnd.random();
 
         for (game.stars, 0..) |_, i| {
-            game.stars[i][0] = r.intRangeLessThan(i32, 10, 160);
-            game.stars[i][1] = r.intRangeLessThan(i32, 25, 160);
+            game.stars[i][0] = r.intRangeLessThan(u8, 10, 160);
+            game.stars[i][1] = r.intRangeLessThan(u8, 25, 160);
             game.stars[i][2] = if (r.boolean()) 1 else 0;
+        }
+
+        for (game.mountains, 0..) |_, i| {
+            game.mountains[i][0] = r.intRangeLessThan(i14, 1, 3); // Z-axis
+            game.mountains[i][1] = r.intRangeLessThan(i14, -4096, 4096); // World X
+            game.mountains[i][2] = r.intRangeLessThan(i14, 15, 60); // Width
+            game.mountains[i][3] = r.intRangeLessThan(i14, 4, 80); // Height
+        }
+
+        for (game.stalactites, 0..) |_, i| {
+            game.stalactites[i][0] = r.intRangeLessThan(i14, -4096, 4096); // World X
+            game.stalactites[i][1] = r.intRangeLessThan(i14, 5, 30); // Width
+            game.stalactites[i][2] = r.intRangeLessThan(i14, 4, 50); // Height
         }
     }
 
@@ -731,10 +746,11 @@ const Game = struct {
         const wx: i32 = 0 + -@divFloor(game.worldX, 3);
 
         { // Background
+            const r = rnd.random();
 
             { // Stars
                 for (game.stars) |sp| {
-                    const rf = rnd.random().float(f32);
+                    const rf = r.float(f32);
 
                     color(if (rf < 0.01) WHITE else GRAY);
 
@@ -755,6 +771,20 @@ const Game = struct {
 
             game.stalactite(wx, 0, 25, 30);
             game.stalactite(wx, 150, 25, 60);
+
+            { // Mountains
+                for (game.mountains) |m| {
+                    if (m[3] > 1) {
+                        game.mountain(wx, m[0], m[1], m[2], m[3]);
+                    }
+                }
+            }
+
+            { // Stalactites
+                for (game.stalactites) |st| {
+                    game.stalactite(wx, st[0], st[1], st[2]);
+                }
+            }
         }
 
         game.ground(wx);
@@ -770,6 +800,14 @@ const Game = struct {
 
             game.mountain(wx, 1, 0, 30, 10);
             game.mountain(wx, 1, 4, 50, 70);
+
+            { // Mountains
+                for (game.mountains) |m| {
+                    if (m[3] == 1) {
+                        game.mountain(wx, m[0], m[1], m[2], m[3]);
+                    }
+                }
+            }
         }
 
         game.hud();
@@ -841,7 +879,7 @@ const Game = struct {
         }
     }
 
-    fn stalactite(_: *Game, wx: i32, x: i32, width: u32, height: u32) void {
+    fn stalactite(_: *Game, wx: i32, x: i32, width: i32, height: i32) void {
         const w: i32 = @intCast(width);
         const o = @divFloor(w, 3);
 
@@ -885,10 +923,10 @@ const Game = struct {
                 const sylt = Sprite.sylt;
 
                 color(0x0003);
-                sylt.blit(2, 5, sylt.flags);
+                sylt.blit(96, 4, sylt.flags);
 
                 color(0x4301);
-                sylt.blit(1, 3, sylt.flags);
+                sylt.blit(95, 3, sylt.flags);
             }
         }
 
@@ -1035,9 +1073,9 @@ const Game = struct {
         .mode = 1,
     },
 
-    stars: [80][3]i32 = .{.{ 0, 0, 0 }} ** 80,
-    stalactites: [80][3]i32 = .{.{ 0, 0, 0 }} ** 80,
-    mountains: [80][4]i32 = .{.{ 0, 0, 0, 0 }} ** 80,
+    stars: [80][3]u8 = .{.{ 0, 0, 0 }} ** 80,
+    stalactites: [128][3]i14 = .{.{ 0, 0, 0 }} ** 128,
+    mountains: [64][4]i14 = .{.{ 0, 0, 0, 0 }} ** 64,
 
     ship: Ship = .{},
 
@@ -1052,6 +1090,8 @@ const Ship = struct {
     energy: u4 = 0,
 
     fn update(ship: *Ship, game: *Game) void {
+        ship.facingRight = (ship.speed > 0);
+
         if (s.button1()) {
             ship.energy +|= 1;
         }
@@ -1066,13 +1106,11 @@ const Ship = struct {
             if (every(6) and s.buttonRightHeld()) {
                 ship.speed +|= if (ship.speed < 0) 2 else 1;
                 shouldLog = true;
-                ship.facingRight = true;
             }
 
             if (every(6) and s.buttonLeftHeld()) {
                 ship.speed -|= if (ship.speed > 0) 2 else 1;
                 shouldLog = true;
-                ship.facingRight = false;
             }
 
             if (every(2) and s.buttonDownHeld()) {
@@ -1239,13 +1277,15 @@ const Over = struct {
     fn enter(over: *Over) !void {
         w4.PALETTE.* = over.palette;
 
+        const r = rnd.random();
+
         // Random positions for the snow particles over
         for (0.., over.snowParticlesOver) |i, _| {
             over.snowParticlesOver[i] = P(
-                rnd.random().float(f32) * 160,
-                rnd.random().float(f32) * 160,
+                r.float(f32) * 160,
+                r.float(f32) * 160,
                 @floatFromInt(45),
-                5 + rnd.random().float(f32) * 15,
+                5 + r.float(f32) * 15,
                 10,
             );
         }
@@ -1253,10 +1293,10 @@ const Over = struct {
         // Random positions for the snow particles behind
         for (0.., over.snowParticlesBehind) |i, _| {
             over.snowParticlesBehind[i] = P(
-                rnd.random().float(f32) * 160,
-                rnd.random().float(f32) * 160,
+                r.float(f32) * 160,
+                r.float(f32) * 160,
                 @floatFromInt(45),
-                5 + rnd.random().float(f32) * 15,
+                5 + r.float(f32) * 15,
                 10,
             );
         }
@@ -1400,6 +1440,8 @@ const Over = struct {
     }
 
     fn updateSnow(over: *Over) void {
+        const r = rnd.random();
+
         for (0.., over.snowParticlesOver) |i, p| {
             var n = p.update(0.1);
 
@@ -1407,7 +1449,7 @@ const Over = struct {
             n.position.data[1] = @mod(n.position.data[1], 165);
 
             if (n.life < 0) {
-                n.life = rnd.random().float(f32) * 10;
+                n.life = r.float(f32) * 10;
             }
 
             over.snowParticlesOver[i] = n;
@@ -1420,7 +1462,7 @@ const Over = struct {
             n.position.data[1] = @mod(n.position.data[1], 165);
 
             if (n.life < 0) {
-                n.life = rnd.random().float(f32) * 10;
+                n.life = r.float(f32) * 10;
             }
 
             over.snowParticlesBehind[i] = n;
