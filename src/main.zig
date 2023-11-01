@@ -707,9 +707,9 @@ const Game = struct {
         game.startup.play(1);
         game.startup.play(2);
 
-        for (game.stars, 0..) |_, i| {
-            const r = rnd.random();
+        const r = rnd.random();
 
+        for (game.stars, 0..) |_, i| {
             game.stars[i][0] = r.intRangeLessThan(i32, 10, 160);
             game.stars[i][1] = r.intRangeLessThan(i32, 25, 160);
             game.stars[i][2] = if (r.boolean()) 1 else 0;
@@ -955,7 +955,7 @@ const Game = struct {
         const ship = game.ship;
 
         color(0x23);
-        rect(143, 0, 18, 21 + (6 * @as(u32, game.ship.energy)));
+        rect(143, 0, 18, 21 + (6 * @as(u32, ship.energy)));
 
         var eo: i32 = 0;
 
@@ -1009,17 +1009,6 @@ const Game = struct {
         0x393541, // Gray
         0x191a1f, // Black
         0xee964b, // Tangerine
-
-        // https://lospec.com/palette-list/pen-n-paper
-        // 0xe4dbba,
-        // 0xa4929a,
-        // 0x4f3a54,
-        // 0x260d1c,
-
-        // 0xdadada,
-        // 0x30303d,
-        // 0x141319,
-        // 0xee964b, // Tangerine
     },
 
     startup: Tone = Tone{
@@ -1047,6 +1036,8 @@ const Game = struct {
     },
 
     stars: [80][3]i32 = .{.{ 0, 0, 0 }} ** 80,
+    stalactites: [80][3]i32 = .{.{ 0, 0, 0 }} ** 80,
+    mountains: [80][4]i32 = .{.{ 0, 0, 0, 0 }} ** 80,
 
     ship: Ship = .{},
 
