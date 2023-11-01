@@ -777,7 +777,7 @@ const Game = struct {
 
         game.ground(wx);
 
-        game.ship.draw(wx, 90);
+        game.ship.draw(wx, 90, s.disk.energy);
 
         { // Foreground
             game.stalactite(wx, 50, 25, 40);
@@ -890,16 +890,10 @@ const Game = struct {
                 }
             }
 
-            const ue: u32 = energy;
-            rect(150, 20, 10, 16 + 5 * ue);
-            hline(145, @intCast(29 + 5 * ue), 2);
-
             color(PRIMARY);
             line(8, 160, 8, 22);
             line(8, 21, 11, 18);
             line(12, 18, 135, 18);
-
-            line(150, 23, 151, @intCast(32 + 5 * ue));
 
             const sylt = Sprite.sylt;
 
@@ -971,31 +965,25 @@ const Game = struct {
 
     fn hudEnergyBar(_: *Game, energy: usize) void {
         color(0x23);
-        rect(143, 11, 18, 11);
+        rect(143, 0, 18, 20 + 4 * energy);
 
         var eo: i32 = 0;
 
-        if (energy < 10) {
-            eo += 5;
-        }
+        if (energy < 10) eo += 5;
 
         if (anyString(energy)) |energyStr| {
             color(WHITE);
-            w4.text(energyStr, 143 + eo, 2);
-        } else |_| {
-            // Nothing to do really if we get an error
-        }
+            w4.text(energyStr, 144 + eo, 3);
+        } else |_| {}
 
         color(if (every(30)) 0x1320 else 0x4320);
 
         const zap = Sprite.zap;
         zap.blit(133, 10, zap.flags);
 
-        for (0..energy) |e| {
-            const offset: i32 = @intCast(e);
-
-            color(0x3331);
-            rect(152, 37 + (offset * 5), 8, 4);
+        color(PRIMARY);
+        for (0..energy) |i| {
+            hline(147, 16 + @as(i32, @intCast(i)) * 4, 10);
         }
     }
 
@@ -1147,11 +1135,11 @@ const Ship = struct {
         }
     }
 
-    fn draw(ship: *Ship, wx: i32, x: i32) void {
+    fn draw(ship: *Ship, wx: i32, x: i32, energy: u4) void {
         const y = 80 - @as(i32, ship.offset);
         const f = @as(i32, @intCast(@mod(s.frame, 8)));
 
-        if (s.disk.energy > 0) {
+        if (energy > 0) {
             if ((ship.speed > 0 and ship.facingRight) or
                 (ship.speed < 0 and !ship.facingRight))
             {
