@@ -719,7 +719,7 @@ const Game = struct {
             game.mountains[i][0] = r.intRangeLessThan(i14, 1, 3); // Z-axis
             game.mountains[i][1] = r.intRangeLessThan(i14, -4096, 4096); // World X
             game.mountains[i][2] = r.intRangeLessThan(i14, 15, 60); // Width
-            game.mountains[i][3] = r.intRangeLessThan(i14, 4, 80); // Height
+            game.mountains[i][3] = r.intRangeLessThan(i14, 4, 75); // Height
         }
 
         for (game.stalactites, 0..) |_, i| {
@@ -737,7 +737,7 @@ const Game = struct {
             s.transition(OVER);
         }
 
-        if (game.hudRechargeBtnClicked()) {
+        if (game.hudRechargeBtnClicked() or s.button2()) {
             game.ship.energy +|= 5;
             game.charges -|= 1;
         }
@@ -805,12 +805,9 @@ const Game = struct {
 
             game.stalactite(wx, 30, 20, 5);
 
-            game.mountain(wx, 1, 0, 30, 10);
-            game.mountain(wx, 1, 4, 50, 70);
-
             { // Mountains
                 for (game.mountains) |m| {
-                    if (m[3] == 1) {
+                    if (m[0] < 2) {
                         game.mountain(wx, m[0], m[1], m[2], m[3]);
                     }
                 }
@@ -824,7 +821,7 @@ const Game = struct {
         if (gamma > 0.2 and p.distance(c) > 25) {
             return WHITE;
         }
-        return @intCast(@divFloor(@mod((wx - p.xi()) ^ p.yi(), 8), 2) + 1);
+        return @intCast(@divFloor(@mod((wx - p.xi()) ^ p.yi(), 3), 1) + 2);
     }
 
     fn mountainColor2(wx: i32, p: Vec, c: Vec, _: f32, _: f32, gamma: f32) u16 {
@@ -852,14 +849,15 @@ const Game = struct {
             1 => mountainColor1,
             2 => mountainColor2,
             3 => mountainColor3,
-            else => triPRIMARY,
+            else => triBLACK,
         });
     }
 
     fn ground(_: *Game, wx: i32) void {
         _ = wx;
         color(WHITE);
-        I(10, 150).rect(150, 10);
+
+        I(10, 140).rect(150, 20);
     }
 
     fn stalactiteColor(wx: i32, p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
@@ -944,17 +942,17 @@ const Game = struct {
     }
 
     fn hudRechargeBtnClicked(_: *Game) bool {
-        return s.mouseLeft() and s.x > 2 and s.y > 2 and s.x < 82 and s.y < 15;
+        return s.mouseLeft() and s.x > 2 and s.y > 2 and s.x < 80 and s.y < 15;
     }
 
     fn hudRechargeBtn(game: *Game) void {
-        color(0x23);
-        if (game.hudRechargeBtnClicked()) {
-            rect(3, 3, 72, 14);
-            title("RECHARGE", 9, 6, GRAY, WHITE);
+        color(0x43);
+        if (game.hudRechargeBtnClicked() or s.button2()) {
+            rect(3, 3, 78, 14);
+            title("\x81RECHARGE", 5, 6, GRAY, WHITE);
         } else {
-            rect(2, 2, 72, 14);
-            title("RECHARGE", 8, 5, GRAY, PRIMARY);
+            rect(2, 2, 78, 14);
+            title("\x81RECHARGE", 4, 5, GRAY, PRIMARY);
         }
 
         const dots: usize = @intCast(game.charges);
@@ -1120,7 +1118,7 @@ const Game = struct {
 const Ship = struct {
     facingRight: bool = true,
     offset: i7 = 0,
-    speed: i5 = 0,
+    speed: i5 = 1,
     lastSpeed: i5 = 0,
     energy: u4 = 0,
 
@@ -1187,11 +1185,13 @@ const Ship = struct {
         game.worldX +|= ship.speed;
         game.distance +|= @abs(ship.speed);
 
-        if (every(100) and @abs(ship.speed) > 2) ship.energy -|= 1;
-        if (every(200)) ship.energy -|= 1;
+        if (ship.offset > -64) {
+            if (every(100) and @abs(ship.speed) > 2) ship.energy -|= 1;
+            if (every(200)) ship.energy -|= 1;
 
-        if (ship.energy == 0 and every(3)) {
-            ship.offset -|= 1;
+            if (ship.energy == 0 and every(3)) {
+                ship.offset -|= 1;
+            }
         }
     }
 
@@ -1233,6 +1233,9 @@ const Ship = struct {
         }
 
         if (ship.facingRight) {
+            color(BLACK);
+            line(x - 24, y - 5, x, y);
+
             triangle(.{
                 I(x - 25, y - 5),
                 I(x, y),
@@ -1246,6 +1249,9 @@ const Ship = struct {
             }, wx, triWHITE);
 
             color(GRAY);
+            line(x - 18, y, x - 20, y - 5);
+
+            color(GRAY);
             line(x - 19, y + 6, x, y);
 
             if (ship.speed > 0) {
@@ -1253,6 +1259,9 @@ const Ship = struct {
                 vpx(I(78 - f * @as(i32, ship.speed), y - 3));
             }
         } else {
+            color(BLACK);
+            line(-20 + x + 25, y - 5, x, y);
+
             triangle(.{
                 I(-20 + x, y),
                 I(-20 + x + 25, y - 5),
