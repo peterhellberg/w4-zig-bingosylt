@@ -55,58 +55,6 @@ pub fn zero() Self {
     return set(0);
 }
 
-/// Shorthand for (1..).
-pub fn one() Self {
-    return set(1);
-}
-
-/// Shorthand for (0, -1).
-pub fn up() Self {
-    return Self.new(0, -1);
-}
-
-/// Shorthand for (0, 1).
-pub fn down() Self {
-    return Self.new(0, 1);
-}
-
-/// Shorthand for (1, 0).
-pub fn right() Self {
-    return Self.new(1, 0);
-}
-
-/// Shorthand for (-1, 0).
-pub fn left() Self {
-    return Self.new(-1, 0);
-}
-
-/// Negate the given vector.
-pub fn negate(self: Self) Self {
-    return self.scale(-1);
-}
-
-/// Construct new vector from slice.
-pub fn fromSlice(slice: []const f32) Self {
-    const result = slice[0..2].*;
-    return .{ .data = result };
-}
-
-/// Transform vector to array.
-pub fn toArray(self: Self) [2]f32 {
-    return self.data;
-}
-
-/// Return the angle (in degrees) between two vectors.
-pub fn getAngle(self: Self, other: Self) f32 {
-    const dot_product = dot(norm(self), norm(other));
-    return radianToDegree(std.math.acos(dot_product));
-}
-
-/// Convert radian to degree
-pub inline fn radianToDegree(r: f32) f32 {
-    return r * 180.0 / std.math.pi;
-}
-
 /// Return the length (magnitude) of given vector.
 /// √[x^2 + y^2 + z^2 ...]
 pub fn length(self: Self) f32 {
@@ -117,16 +65,6 @@ pub fn length(self: Self) f32 {
 /// √[(x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2 ...]
 pub fn distance(self: Self, other: Self) f32 {
     return length(self.sub(other));
-}
-
-/// Construct new normalized vector from a given one.
-pub fn norm(self: Self) Self {
-    const l = self.length();
-    if (l == 0) {
-        return self;
-    }
-    const result = self.data / @as(Vec, @splat(l));
-    return .{ .data = result };
 }
 
 /// Return true if two vectors are equals.
@@ -143,24 +81,6 @@ pub fn sub(self: Self, other: Self) Self {
 /// Addition betwen two given vector.
 pub fn add(self: Self, other: Self) Self {
     const result = self.data + other.data;
-    return .{ .data = result };
-}
-
-/// Component wise multiplication betwen two given vector.
-pub fn mul(self: Self, other: Self) Self {
-    const result = self.data * other.data;
-    return .{ .data = result };
-}
-
-/// Construct vector from the max components in two vectors
-pub fn max(self: Self, other: Self) Self {
-    const result = @max(self.data, other.data);
-    return .{ .data = result };
-}
-
-/// Construct vector from the min components in two vectors
-pub fn min(self: Self, other: Self) Self {
-    const result = @min(self.data, other.data);
     return .{ .data = result };
 }
 
