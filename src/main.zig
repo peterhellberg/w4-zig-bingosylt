@@ -3,6 +3,7 @@ const std = @import("std");
 // WASM-4
 const w4 = @import("wasm4.zig");
 
+const oval = w4.oval;
 const rect = w4.rect;
 const line = w4.line;
 const hline = w4.hline;
@@ -326,16 +327,6 @@ const Intro = struct {
                     s.transition(GAME);
                 }
             }
-
-            // Font mapping
-            ///////////////
-            // å -> \xE5 //
-            // ä -> \xE4 //
-            // ö -> \xF6 //
-            // Å -> \xC5 //
-            // Ä -> \xC4 //
-            // Ö -> \xD6 //
-            ///////////////
         }
     }
 
@@ -354,7 +345,7 @@ const Intro = struct {
                         const rf = r.float(f32);
                         if (rf < 0.001) {
                             color(0x3310);
-                            I(x, y).oval(3, 3);
+                            oval(@intCast(x), @intCast(y), 3, 3);
                         }
                         color(GRAY);
                         upx(x, y);
@@ -369,10 +360,11 @@ const Intro = struct {
 
     fn zaps(_: *Intro) void {
         color(BLACK);
-        V(1, 0).oval(21, 21);
-        V(1, 137).oval(21, 21);
-        V(137, 1).oval(21, 21);
-        V(137, 137).oval(21, 21);
+
+        oval(1, 0, 21, 21);
+        oval(1, 137, 21, 21);
+        oval(137, 1, 21, 21);
+        oval(137, 137, 21, 21);
 
         const zap = Sprite.zap;
 
@@ -709,23 +701,29 @@ const Game = struct {
 
         const r = rnd.random();
 
+        for (game.rocks, 0..) |_, i| {
+            game.rocks[i][0] = r.intRangeLessThanBiased(i32, -1024, 1024);
+            game.rocks[i][1] = r.intRangeLessThanBiased(i32, 0, 4);
+            game.rocks[i][2] = r.intRangeLessThanBiased(i32, 0, 3);
+        }
+
         for (game.stars, 0..) |_, i| {
-            game.stars[i][0] = r.intRangeLessThan(u8, 10, 160);
-            game.stars[i][1] = r.intRangeLessThan(u8, 25, 160);
+            game.stars[i][0] = r.intRangeLessThanBiased(u8, 10, 160);
+            game.stars[i][1] = r.intRangeLessThanBiased(u8, 25, 160);
             game.stars[i][2] = if (r.boolean()) 1 else 0;
         }
 
         for (game.mountains, 0..) |_, i| {
-            game.mountains[i][0] = r.intRangeLessThan(i14, 1, 3); // Z-axis
-            game.mountains[i][1] = r.intRangeLessThan(i14, -4096, 4096); // World X
-            game.mountains[i][2] = r.intRangeLessThan(i14, 15, 60); // Width
-            game.mountains[i][3] = r.intRangeLessThan(i14, 4, 75); // Height
+            game.mountains[i][0] = r.intRangeLessThanBiased(i14, 1, 3); // Z-axis
+            game.mountains[i][1] = r.intRangeLessThanBiased(i14, -4096, 4096); // World X
+            game.mountains[i][2] = r.intRangeLessThanBiased(i14, 15, 60); // Width
+            game.mountains[i][3] = r.intRangeLessThanBiased(i14, 4, 75); // Height
         }
 
         for (game.stalactites, 0..) |_, i| {
-            game.stalactites[i][0] = r.intRangeLessThan(i14, -4096, 4096); // World X
-            game.stalactites[i][1] = r.intRangeLessThan(i14, 5, 30); // Width
-            game.stalactites[i][2] = r.intRangeLessThan(i14, 4, 50); // Height
+            game.stalactites[i][0] = r.intRangeLessThanBiased(i14, -4096, 4096); // World X
+            game.stalactites[i][1] = r.intRangeLessThanBiased(i14, 5, 30); // Width
+            game.stalactites[i][2] = r.intRangeLessThanBiased(i14, 4, 50); // Height
         }
     }
 
@@ -738,8 +736,10 @@ const Game = struct {
         }
 
         if (game.hudRechargeBtnClicked() or s.button2()) {
-            game.ship.energy +|= 5;
-            game.charges -|= 1;
+            if (game.charges > 0) {
+                game.ship.energy +|= 5;
+                game.charges -|= 1;
+            }
         }
     }
 
@@ -750,7 +750,7 @@ const Game = struct {
     fn draw(game: *Game) !void {
         clear(BLACK);
 
-        const wx: i32 = -@divFloor(game.worldX, 15);
+        const wx: i32 = -game.worldX;
 
         { // Background
             const r = rnd.random();
@@ -840,24 +840,41 @@ const Game = struct {
         return @intCast(@divFloor(@mod((@divFloor(wx, 3) - p.xi()) ^ p.yi(), 8), 2) + 1);
     }
 
-    fn mountain(_: *Game, wx: i32, FOO: i32, x: i32, width: i32, height: i32) void {
+    fn mountain(_: *Game, wx: i32, z: i32, x: i32, width: i32, height: i32) void {
+        if (@abs(wx + x) > 1024) {
+            return;
+        }
+
         triangle(.{
-            I(@divFloor(wx, FOO) + x, 150),
-            I(@divFloor(wx, FOO) + x + @divFloor(width, 2), 150 - height),
-            I(@divFloor(wx, FOO) + x + width, 150),
-        }, wx, switch (FOO) {
+            I(@divFloor(wx, z) + x, 150),
+            I(@divFloor(wx, z) + x + @divFloor(width, 2), 150 - height),
+            I(@divFloor(wx, z) + x + width, 150),
+        }, wx, switch (z) {
             1 => mountainColor1,
             2 => mountainColor2,
             3 => mountainColor3,
-            else => triBLACK,
+            else => triWHITE,
         });
     }
 
-    fn ground(_: *Game, wx: i32) void {
-        _ = wx;
+    fn ground(game: *Game, wx: i32) void {
         color(WHITE);
+        rect(10, 140, 150, 20);
 
-        I(10, 140).rect(150, 20);
+        { // Rocks
+            color(PRIMARY);
+            for (game.rocks) |r| {
+                const x: i32 = r[0] * 4;
+
+                pixel(wx - x, 150 + r[1]);
+
+                if (r[2] > 0) {
+                    color(GRAY);
+                    pixel(wx - x - 1, 149 + r[1]);
+                    pixel(wx - x - 1, 150 + r[1]);
+                }
+            }
+        }
     }
 
     fn stalactiteColor(wx: i32, p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
@@ -885,6 +902,10 @@ const Game = struct {
     }
 
     fn stalactite(_: *Game, wx: i32, x: i32, width: i32, height: i32) void {
+        if (@abs(wx + x) > 1024) {
+            return;
+        }
+
         const w: i32 = @intCast(width);
         const o = @divFloor(w, 3);
 
@@ -946,13 +967,14 @@ const Game = struct {
     }
 
     fn hudRechargeBtn(game: *Game) void {
-        color(0x13);
+        color(if (game.charges == 0) 0x23 else 0x13);
+
         if (game.hudRechargeBtnClicked() or s.button2()) {
             rect(3, 3, 78, 14);
             title("\x81RECHARGE", 5, 6, GRAY, WHITE);
         } else {
             rect(2, 2, 78, 14);
-            title("\x81RECHARGE", 4, 5, GRAY, PRIMARY);
+            title("\x81RECHARGE", 4, 5, GRAY, if (game.charges == 0) BLACK else PRIMARY);
         }
 
         const dots: usize = @intCast(game.charges);
@@ -964,7 +986,7 @@ const Game = struct {
             line(2, 16, 2, dy + 3);
 
             color(0x41);
-            w4.oval(5, dy, 8, 8);
+            oval(5, dy, 8, 8);
             hline(2, dy + 3, 5);
 
             color(0x01);
@@ -1110,7 +1132,8 @@ const Game = struct {
         .mode = 1,
     },
 
-    stars: [80][3]u8 = .{.{ 0, 0, 0 }} ** 80,
+    rocks: [128][3]i32 = .{.{ 0, 0, 0 }} ** 128,
+    stars: [64][3]u8 = .{.{ 0, 0, 0 }} ** 64,
     stalactites: [128][3]i14 = .{.{ 0, 0, 0 }} ** 128,
     mountains: [64][4]i14 = .{.{ 0, 0, 0, 0 }} ** 64,
 
@@ -1124,8 +1147,8 @@ const Game = struct {
 const Ship = struct {
     facingRight: bool = true,
     offset: i7 = 0,
-    speed: i6 = 2,
-    lastSpeed: i6 = 0,
+    speed: i3 = 2,
+    lastSpeed: i3 = 0,
     energy: u4 = 0,
 
     fn update(ship: *Ship, game: *Game) void {
@@ -1564,28 +1587,23 @@ const GRAY: u16 = 0x0002;
 const BLACK: u16 = 0x0003;
 const PRIMARY: u16 = 0x0004;
 
-fn triWHITE(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
-    _ = wx;
+fn triWHITE(_: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     return WHITE;
 }
 
-fn triGRAY(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
-    _ = wx;
+fn triGRAY(_: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     return GRAY;
 }
 
-fn triBLACK(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
-    _ = wx;
+fn triBLACK(_: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     return BLACK;
 }
 
-fn triPRIMARY(wx: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
-    _ = wx;
+fn triPRIMARY(_: i32, _: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     return PRIMARY;
 }
 
-fn triFir(wx: i32, p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
-    _ = wx;
+fn triFir(_: i32, p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     const x = p.xu();
     const y = p.yu();
 
