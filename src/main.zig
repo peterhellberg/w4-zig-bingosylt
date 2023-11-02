@@ -282,11 +282,11 @@ const Intro = struct {
 
         intro.background();
 
-        const np = ([_]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
+        const nine_points = ([9]f32{ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 })[0..];
 
-        intro.catline(V(-20, 70), V(180, 90), 25, np, V(3, 4));
+        intro.catline(V(-20, 70), V(180, 90), 25, nine_points, V(3, 4));
         intro.scrollingTitle(138);
-        intro.tower(np);
+        intro.tower(nine_points);
         intro.zaps();
         intro.topcat();
 
@@ -1080,6 +1080,7 @@ const Game = struct {
 
     fn hudInfoBar(game: *Game) void {
         if (anyString(game.distance)) |scoreStr| {
+            const CURRENCY = "\xA4";
             title(CURRENCY, 9, 20, BLACK, PRIMARY);
             title(scoreStr, 18, 20, BLACK, WHITE);
         } else |_| {} // Nothing to do really if we get an error
@@ -1572,9 +1573,6 @@ fn every(f: u32) bool {
     return @mod(s.frame, f) == 0;
 }
 
-const TM = "\xAE";
-const CURRENCY = "\xA4";
-
 // The colors
 const WHITE: u16 = 0x0001;
 const GRAY: u16 = 0x0002;
@@ -1740,13 +1738,6 @@ fn anyString(arg: anytype) ![]u8 {
     defer allocator.free(str);
 
     return str;
-}
-
-fn any(arg: anytype, x: i32, y: i32, bg: u16, fg: u16) !void {
-    const str = try std.fmt.allocPrint(allocator, "{any}", .{arg});
-    defer allocator.free(str);
-
-    title(str, x, y, bg, fg);
 }
 
 pub fn log(comptime format: []const u8, args: anytype) void {
