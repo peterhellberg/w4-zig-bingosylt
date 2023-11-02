@@ -15,7 +15,8 @@ var fba = std.heap.FixedBufferAllocator.init(&memory);
 const allocator = fba.allocator();
 
 // Random number generator
-var rnd = std.rand.DefaultPrng.init(0);
+var prng = std.rand.DefaultPrng.init(0);
+var rng: std.rand.Random = undefined;
 
 // 2D Vector implementation
 const Vec = @import("Vec.zig");
@@ -336,7 +337,7 @@ const Intro = struct {
             triangle(T(-1, -1, 161, 161, -1, 161), 0, introBgPowerOn);
         }
 
-        const r = rnd.random();
+        const r = prng.random();
 
         for (0..160) |y| {
             for (0..160) |x| {
@@ -699,31 +700,29 @@ const Game = struct {
         game.startup.play(1);
         game.startup.play(2);
 
-        const r = rnd.random();
-
         for (game.rocks, 0..) |_, i| {
-            game.rocks[i][0] = r.intRangeLessThanBiased(i32, -1024, 1024);
-            game.rocks[i][1] = r.intRangeLessThanBiased(i32, 0, 4);
-            game.rocks[i][2] = r.intRangeLessThanBiased(i32, 0, 3);
+            game.rocks[i][0] = rng.intRangeLessThanBiased(i32, -1024, 1024);
+            game.rocks[i][1] = rng.intRangeLessThanBiased(i32, 0, 4);
+            game.rocks[i][2] = rng.intRangeLessThanBiased(i32, 0, 3);
         }
 
         for (game.stars, 0..) |_, i| {
-            game.stars[i][0] = r.intRangeLessThanBiased(u8, 10, 160);
-            game.stars[i][1] = r.intRangeLessThanBiased(u8, 25, 160);
-            game.stars[i][2] = if (r.boolean()) 1 else 0;
+            game.stars[i][0] = rng.intRangeLessThanBiased(u8, 10, 160);
+            game.stars[i][1] = rng.intRangeLessThanBiased(u8, 25, 160);
+            game.stars[i][2] = if (rng.boolean()) 1 else 0;
         }
 
         for (game.mountains, 0..) |_, i| {
-            game.mountains[i][0] = r.intRangeLessThanBiased(i14, 1, 3); // Z-axis
-            game.mountains[i][1] = r.intRangeLessThanBiased(i14, -4096, 4096); // World X
-            game.mountains[i][2] = r.intRangeLessThanBiased(i14, 15, 60); // Width
-            game.mountains[i][3] = r.intRangeLessThanBiased(i14, 4, 75); // Height
+            game.mountains[i][0] = rng.intRangeLessThanBiased(i14, 1, 3); // Z-axis
+            game.mountains[i][1] = rng.intRangeLessThanBiased(i14, -4096, 4096); // World X
+            game.mountains[i][2] = rng.intRangeLessThanBiased(i14, 15, 60); // Width
+            game.mountains[i][3] = rng.intRangeLessThanBiased(i14, 4, 75); // Height
         }
 
         for (game.stalactites, 0..) |_, i| {
-            game.stalactites[i][0] = r.intRangeLessThanBiased(i14, -4096, 4096); // World X
-            game.stalactites[i][1] = r.intRangeLessThanBiased(i14, 5, 30); // Width
-            game.stalactites[i][2] = r.intRangeLessThanBiased(i14, 4, 50); // Height
+            game.stalactites[i][0] = rng.intRangeLessThanBiased(i14, -4096, 4096); // World X
+            game.stalactites[i][1] = rng.intRangeLessThanBiased(i14, 5, 30); // Width
+            game.stalactites[i][2] = rng.intRangeLessThanBiased(i14, 4, 50); // Height
         }
     }
 
@@ -753,11 +752,10 @@ const Game = struct {
         const wx: i32 = -game.worldX;
 
         { // Background
-            const r = rnd.random();
 
             { // Stars
                 for (game.stars) |sp| {
-                    const rf = r.float(f32);
+                    const rf = rng.float(f32);
 
                     color(if (rf < 0.01) WHITE else GRAY);
 
@@ -1357,15 +1355,13 @@ const Over = struct {
     fn enter(over: *Over) !void {
         w4.PALETTE.* = over.palette;
 
-        const r = rnd.random();
-
         // Random positions for the snow particles over
         for (0.., over.snowParticlesOver) |i, _| {
             over.snowParticlesOver[i] = P(
-                r.float(f32) * 160,
-                r.float(f32) * 160,
+                rng.float(f32) * 160,
+                rng.float(f32) * 160,
                 @floatFromInt(45),
-                5 + r.float(f32) * 15,
+                5 + rng.float(f32) * 15,
                 10,
             );
         }
@@ -1373,10 +1369,10 @@ const Over = struct {
         // Random positions for the snow particles behind
         for (0.., over.snowParticlesBehind) |i, _| {
             over.snowParticlesBehind[i] = P(
-                r.float(f32) * 160,
-                r.float(f32) * 160,
+                rng.float(f32) * 160,
+                rng.float(f32) * 160,
                 @floatFromInt(45),
-                5 + r.float(f32) * 15,
+                5 + rng.float(f32) * 15,
                 10,
             );
         }
@@ -1520,8 +1516,6 @@ const Over = struct {
     }
 
     fn updateSnow(over: *Over) void {
-        const r = rnd.random();
-
         for (0.., over.snowParticlesOver) |i, p| {
             var n = p.update(0.1);
 
@@ -1529,7 +1523,7 @@ const Over = struct {
             n.position.data[1] = @mod(n.position.data[1], 165);
 
             if (n.life < 0) {
-                n.life = r.float(f32) * 10;
+                n.life = rng.float(f32) * 10;
             }
 
             over.snowParticlesOver[i] = n;
@@ -1542,7 +1536,7 @@ const Over = struct {
             n.position.data[1] = @mod(n.position.data[1], 165);
 
             if (n.life < 0) {
-                n.life = r.float(f32) * 10;
+                n.life = rng.float(f32) * 10;
             }
 
             over.snowParticlesBehind[i] = n;
@@ -1790,6 +1784,7 @@ fn idleBird(f: u32, x: i32, y: i32) void {
 //
 
 export fn start() void {
+    rng = prng.random();
     s.start();
 }
 
