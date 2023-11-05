@@ -692,9 +692,10 @@ const Game = struct {
     fn enter(game: *Game) !void {
         w4.PALETTE.* = game.palette;
 
-        game.charges = 5;
+        game.worldX = 0;
         game.distance = 0;
-        game.ship.energy = 15;
+        game.charges = 5;
+        game.ship = .{ .energy = 3 };
 
         game.startup.play(0);
         game.startup.play(1);
