@@ -31,185 +31,6 @@ const P = Particle.new;
 const Tone = @import("Tone.zig");
 const Sprite = @import("Sprite.zig");
 
-// Disk represents what is read and written
-// from the persistent storage by the game.
-const Disk = struct {
-    si: u2,
-};
-
-// Global state
-var s = State{};
-
-const State = struct {
-    fn start(_: *State) void {
-        w4.trace(
-            \\    ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
-            \\   |   __ |_     _|    |  |     __|       |     __|   |   |     ||_     _|
-            \\  /|   __ <_|   |_|       |    |  |   -   |__     |\     /|       || #9|\
-            \\.::|______|_______|__|____|_______|_______|_______| |___| |_______||___|::.
-            \\
-        );
-
-        // Transition to the scene loaded from disk
-        // defaulting to the OVER scene
-        s.transition(s.load(OVER));
-    }
-
-    fn load(state: *State, defaultScene: u2) u2 {
-        var d: Disk = .{ .si = defaultScene };
-
-        _ = w4.diskr(@ptrCast(&d), @sizeOf(@TypeOf(d)));
-
-        state.disk = d;
-
-        return d.si;
-    }
-
-    fn update(state: *State) !void {
-        // Update mouse press on this and last frame
-        state.btf = state.buttons.* & (state.buttons.* ^ state.blf);
-        state.blf = state.buttons.*;
-
-        state.gtf = state.gamepad.* & (state.gamepad.* ^ state.glf);
-        state.glf = state.gamepad.*;
-
-        if (state.buttons.* & w4.MOUSE_LEFT != 0) {
-            // Update mouse position
-            state.x = @intCast(w4.MOUSE_X.*);
-            state.y = @intCast(w4.MOUSE_Y.*);
-
-            if (state.x < 0) state.x = 0;
-            if (state.y < 0) state.y = 0;
-            if (state.x > 160) state.x = 160;
-            if (state.y > 160) state.y = 160;
-
-            state.m = V(@floatFromInt(state.x), @floatFromInt(state.y));
-            state.lm = state.m;
-        }
-
-        // Increment the frame counter
-        state.frame +%= 1;
-
-        // Update the scene specific state
-        try state.scenes[state.disk.si].update();
-    }
-
-    fn draw(state: *State) !void {
-        // Draw the scene
-        try state.scenes[s.disk.si].draw();
-    }
-
-    fn mouseLeft(state: *State) bool {
-        return state.btf & w4.MOUSE_LEFT != 0;
-    }
-
-    fn mouseMiddle(state: *State) bool {
-        return state.btf & w4.MOUSE_MIDDLE != 0;
-    }
-
-    fn mouseRight(state: *State) bool {
-        return state.btf & w4.MOUSE_RIGHT != 0;
-    }
-
-    fn button1(state: *State) bool {
-        return state.gtf & w4.BUTTON_1 != 0;
-    }
-
-    fn button2(state: *State) bool {
-        return state.gtf & w4.BUTTON_2 != 0;
-    }
-
-    fn buttonUp(state: *State) bool {
-        return state.gtf & w4.BUTTON_UP != 0;
-    }
-
-    fn buttonDown(state: *State) bool {
-        return state.gtf & w4.BUTTON_DOWN != 0;
-    }
-
-    fn buttonLeft(state: *State) bool {
-        return state.gtf & w4.BUTTON_LEFT != 0;
-    }
-
-    fn buttonRight(state: *State) bool {
-        return state.gtf & w4.BUTTON_RIGHT != 0;
-    }
-
-    fn mouseLeftHeld(state: *State) bool {
-        return state.buttons.* & w4.MOUSE_LEFT != 0;
-    }
-
-    fn button1Held(state: *State) bool {
-        return state.gamepad.* & w4.BUTTON_1 != 0;
-    }
-
-    fn button2Held(state: *State) bool {
-        return state.gamepad.* & w4.BUTTON_2 != 0;
-    }
-
-    fn buttonUpHeld(state: *State) bool {
-        return state.gamepad.* & w4.BUTTON_UP != 0;
-    }
-
-    fn buttonDownHeld(state: *State) bool {
-        return state.gamepad.* & w4.BUTTON_DOWN != 0;
-    }
-
-    fn buttonRightHeld(state: *State) bool {
-        return state.gamepad.* & w4.BUTTON_RIGHT != 0;
-    }
-
-    fn buttonLeftHeld(state: *State) bool {
-        return state.gamepad.* & w4.BUTTON_LEFT != 0;
-    }
-
-    fn transition(state: *State, si: u2) void {
-        log("🎬 Scene  = {s}\n", .{switch (si) {
-            INTRO => "INTRO",
-            GAME => "GAME",
-            OVER => "OVER",
-            else => "UNKNOWN",
-        }});
-
-        _ = try state.scenes[si].enter();
-
-        state.disk.si = si;
-
-        state.save();
-    }
-
-    fn save(state: *State) void {
-        // Save the state disk into persistent storage
-        _ = w4.diskw(@ptrCast(&state.disk), @sizeOf(@TypeOf(state.disk)));
-    }
-
-    disk: Disk = .{ .si = 0 },
-
-    frame: u32 = 0,
-
-    x: i32 = 80, // Mouse X
-    y: i32 = 80, // Mouse Y
-
-    blf: u8 = 0, // Buttons pressed last frame
-    btf: u8 = 0, // Buttons pressed this frame
-
-    glf: u8 = 0, // Gamepad pressed last frame
-    gtf: u8 = 0, // Gamepad pressed this frame
-
-    // The inputs
-    buttons: *const u8 = w4.MOUSE_BUTTONS,
-    gamepad: *const u8 = w4.GAMEPAD1,
-
-    m: Vec = Vec.set(80),
-    lm: Vec = Vec.set(80),
-
-    scenes: [3]Scene = .{
-        .{ .intro = Intro{} },
-        .{ .game = Game{} },
-        .{ .over = Over{} },
-    },
-};
-
 const Intro = struct {
     fn enter(intro: *Intro) !void {
         w4.PALETTE.* = intro.tangerineNoir;
@@ -221,17 +42,17 @@ const Intro = struct {
     fn update(intro: *Intro) !void {
         w4.PALETTE.*[3] = intro.repeating[
             @mod(
-                @divFloor(s.frame, 8),
+                @divFloor(frame, 8),
                 intro.repeating.len,
             )
         ];
 
-        if (s.button2()) {
+        if (button2()) {
             intro.debugEnabled = !intro.debugEnabled;
         }
 
-        if (s.mouseLeftHeld() and intro.towerPos.distance(s.m) < 20) {
-            intro.towerPos = intro.towerPos.lerp(s.m, 0.6);
+        if (mouseLeftHeld() and intro.towerPos.distance(mouse) < 20) {
+            intro.towerPos = intro.towerPos.lerp(mouse, 0.6);
 
             const tp = intro.towerPos;
 
@@ -251,11 +72,11 @@ const Intro = struct {
 
             const tp = intro.towerPos;
 
-            if (s.mouseLeftHeld()) {
-                if (tp.distance(center) < 10 and s.m.distance(V(13, 13)) < 10) intro.touchedZaps[0] = false;
-                if (tp.distance(center) < 10 and s.m.distance(V(146, 11)) < 10) intro.touchedZaps[1] = false;
-                if (tp.distance(center) < 10 and s.m.distance(V(146, 146)) < 10) intro.touchedZaps[2] = false;
-                if (tp.distance(center) < 10 and s.m.distance(V(13, 146)) < 10) intro.touchedZaps[3] = false;
+            if (mouseLeftHeld()) {
+                if (tp.distance(center) < 10 and mouse.distance(V(13, 13)) < 10) intro.touchedZaps[0] = false;
+                if (tp.distance(center) < 10 and mouse.distance(V(146, 11)) < 10) intro.touchedZaps[1] = false;
+                if (tp.distance(center) < 10 and mouse.distance(V(146, 146)) < 10) intro.touchedZaps[2] = false;
+                if (tp.distance(center) < 10 and mouse.distance(V(13, 146)) < 10) intro.touchedZaps[3] = false;
             }
 
             if (!intro.touchedZaps[0] and intro.prevTouchedZaps[0]) intro.powerOffTone.play(2);
@@ -266,7 +87,7 @@ const Intro = struct {
 
         if (intro.powerJustOn()) {
             intro.powerOnTone.play(1);
-            intro.powerOnFrame = s.frame;
+            intro.powerOnFrame = frame;
         }
 
         if (intro.powerJustOff()) {
@@ -294,7 +115,7 @@ const Intro = struct {
         if (intro.powerIsOn()) {
             if (intro.easterEggTime()) {
                 w4.text("KODSNACK!", 44, 15);
-                flyingBirds(s.frame);
+                flyingBirds(frame);
             } else {
                 w4.text("POWER ON!", 44, 15);
             }
@@ -303,15 +124,15 @@ const Intro = struct {
         }
 
         try intro.debug(.{
-            s.frame,
-            s.x,
-            s.y,
+            frame,
+            mouseX,
+            mouseY,
             intro.powerIsOn(),
-            @as(i32, @intFromFloat(s.m.distance(V(80, 80)))),
+            @as(i32, @intFromFloat(mouse.distance(V(80, 80)))),
         });
 
         if (intro.powerOnFrame > 0) {
-            const sincePowerOn = s.frame - intro.powerOnFrame;
+            const sincePowerOn = frame - intro.powerOnFrame;
 
             const size: u32 = if (sincePowerOn < 500) sincePowerOn / 2 else 250;
             const step: f32 = @floatFromInt(size);
@@ -324,8 +145,8 @@ const Intro = struct {
             if (size == 250) {
                 title("PRESS\n\x80to\nGAME!", 104, 105, 0, WHITE);
 
-                if (s.button1()) {
-                    s.transition(GAME);
+                if (button1()) {
+                    transition(GAME);
                 }
             }
         }
@@ -407,7 +228,7 @@ const Intro = struct {
 
         color(0x33);
 
-        if (s.mouseLeftHeld() and tp.distance(s.m) < 20) {
+        if (mouseLeftHeld() and tp.distance(mouse) < 20) {
             color(0x33);
 
             if (tp.distance(V(13, 13)) < 10) color(0x14);
@@ -418,9 +239,9 @@ const Intro = struct {
 
         tp.sub(V(14, 14)).oval(28, 28);
 
-        if (s.mouseLeftHeld() and !s.buttonUpHeld()) {
+        if (mouseLeftHeld() and !buttonUpHeld()) {
             color(GRAY);
-            s.lm.line(tp);
+            lastMouse.line(tp);
 
             color(0x3313);
 
@@ -429,7 +250,7 @@ const Intro = struct {
             if (tp.distance(V(146, 146)) < 10) color(0x44);
             if (tp.distance(V(13, 146)) < 10) color(0x44);
 
-            s.lm.sub(V(13, 13)).oval(26, 26);
+            lastMouse.sub(V(13, 13)).oval(26, 26);
         }
 
         color(0x4001);
@@ -521,7 +342,7 @@ const Intro = struct {
     }
 
     fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, catOffset: Vec) void {
-        var fframe: f32 = @floatFromInt(s.frame);
+        var fframe: f32 = @floatFromInt(frame);
         var t: f32 = @abs(@mod(fframe, 1000) - 500) / 500;
         const catPos = a.lerp(b, t).sub(catOffset);
         const fsize: f32 = @floatFromInt(size);
@@ -551,7 +372,7 @@ const Intro = struct {
     }
 
     fn scrollingTitle(intro: *Intro, down: i32) void {
-        var offset: i32 = @intCast(@mod(@divFloor(s.frame, 1), 480));
+        var offset: i32 = @intCast(@mod(@divFloor(frame, 1), 480));
 
         color(GRAY);
 
@@ -589,7 +410,7 @@ const Intro = struct {
     }
 
     fn easterEggTime(intro: *Intro) bool {
-        return intro.powerIsOn() and s.frame - intro.powerOnFrame > 270;
+        return intro.powerIsOn() and frame - intro.powerOnFrame > 270;
     }
 
     fn introBgPowerOn(wx: i32, p: Vec, c: Vec, _: f32, _: f32, _: f32) u16 {
@@ -598,8 +419,8 @@ const Intro = struct {
         const x = p.xu();
         const y = p.yu();
 
-        if (d > @abs(@as(f32, @floatFromInt(@mod(s.frame, 60))) / 32 - 16) and @mod(y ^ x, 7) == 0 and @mod(y, 2) == 1) {
-            if (d < 11 and @mod(s.frame, 14) < 102) {
+        if (d > @abs(@as(f32, @floatFromInt(@mod(frame, 60))) / 32 - 16) and @mod(y ^ x, 7) == 0 and @mod(y, 2) == 1) {
+            if (d < 11 and @mod(frame, 14) < 102) {
                 return PRIMARY;
             }
 
@@ -732,10 +553,10 @@ const Game = struct {
 
         if (game.isDead()) {
             game.died.play(2);
-            s.transition(OVER);
+            transition(OVER);
         }
 
-        if (game.hudRechargeBtnClicked() or s.button2()) {
+        if (game.hudRechargeBtnClicked() or button2()) {
             if (game.charges > 0) {
                 game.ship.energy +|= 5;
                 game.charges -|= 1;
@@ -886,7 +707,7 @@ const Game = struct {
         }
 
         if (@mod(x, 5) == 0 and @mod(y ^ x, 4) == 1) {
-            if (d < 11 and @mod(s.frame, 24) < 12) {
+            if (d < 11 and @mod(frame, 24) < 12) {
                 return PRIMARY;
             }
 
@@ -962,13 +783,13 @@ const Game = struct {
     }
 
     fn hudRechargeBtnClicked(_: *Game) bool {
-        return s.mouseLeft() and s.x > 2 and s.y > 2 and s.x < 80 and s.y < 15;
+        return mouseLeft() and mouseX > 2 and mouseY > 2 and mouseX < 80 and mouseY < 15;
     }
 
     fn hudRechargeBtn(game: *Game) void {
         color(if (game.charges == 0) 0x23 else 0x13);
 
-        if (game.hudRechargeBtnClicked() or s.button2()) {
+        if (game.hudRechargeBtnClicked() or button2()) {
             rect(3, 3, 78, 14);
             title("\x81RECHARGE", 5, 6, GRAY, WHITE);
         } else {
@@ -1011,12 +832,12 @@ const Game = struct {
             pixel(x + 5, y + 6);
         }
         {
-            inputBarButton("\x80", x, y, s.button1Held());
-            inputBarButton("\x81", x, y, s.button2Held());
-            inputBarButton("\x84", x, y, s.buttonLeftHeld());
-            inputBarButton("\x85", x, y, s.buttonRightHeld());
-            inputBarButton("\x86", x, y, s.buttonUpHeld());
-            inputBarButton("\x87", x, y, s.buttonDownHeld());
+            inputBarButton("\x80", x, y, button1Held());
+            inputBarButton("\x81", x, y, button2Held());
+            inputBarButton("\x84", x, y, buttonLeftHeld());
+            inputBarButton("\x85", x, y, buttonRightHeld());
+            inputBarButton("\x86", x, y, buttonUpHeld());
+            inputBarButton("\x87", x, y, buttonDownHeld());
         }
         {
             color(BLACK);
@@ -1156,26 +977,26 @@ const Ship = struct {
             ship.facingRight = (ship.speed > 0);
         }
 
-        if (s.button1()) {
+        if (button1()) {
             // TODO: Should we have some debug info?
         }
 
-        if (s.button2()) {}
+        if (button2()) {}
 
         var shouldLog = false;
 
         if (ship.offset > -64) {
-            if (every(6) and s.buttonRightHeld()) {
+            if (every(6) and buttonRightHeld()) {
                 ship.speed +|= if (ship.speed < 0) 2 else 1;
                 shouldLog = true;
             }
 
-            if (every(6) and s.buttonLeftHeld()) {
+            if (every(6) and buttonLeftHeld()) {
                 ship.speed -|= if (ship.speed > 0) 2 else 1;
                 shouldLog = true;
             }
 
-            if (every(2) and s.buttonDownHeld()) {
+            if (every(2) and buttonDownHeld()) {
                 ship.offset -|= 1;
                 shouldLog = true;
             }
@@ -1188,7 +1009,7 @@ const Ship = struct {
         }
 
         if (ship.energy > 0) {
-            if (every(2) and s.buttonUpHeld() and ship.energy > 0) {
+            if (every(2) and buttonUpHeld() and ship.energy > 0) {
                 ship.offset +|= 1;
                 shouldLog = true;
             }
@@ -1226,7 +1047,7 @@ const Ship = struct {
 
     fn draw(ship: *Ship, wx: i32, x: i32) void {
         const y = 80 - @as(i32, ship.offset);
-        const f = @as(i32, @intCast(@mod(s.frame, 8)));
+        const f = @as(i32, @intCast(@mod(frame, 8)));
 
         if (ship.energy > 0) {
             const xo: i32 = if (ship.facingRight) 60 else 100;
@@ -1380,8 +1201,8 @@ const Over = struct {
     }
 
     fn update(over: *Over) !void {
-        if (s.button1()) {
-            s.transition(INTRO);
+        if (button1()) {
+            transition(INTRO);
         }
 
         over.updateSnow();
@@ -1390,12 +1211,12 @@ const Over = struct {
         if (every(30)) over.pressFlipped = !over.pressFlipped;
         if (every(400)) over.sound.play(2);
 
-        if (s.mouseLeftHeld()) {
+        if (mouseLeftHeld()) {
             const v1 = V(20, 128).offset(10, 5);
             const v2 = V(134, 138).offset(5, 10);
 
-            if (s.m.distance(v1) < 8) over.birdSound.play(0);
-            if (s.m.distance(v2) < 8) over.birdSound.play(1);
+            if (mouse.distance(v1) < 8) over.birdSound.play(0);
+            if (mouse.distance(v2) < 8) over.birdSound.play(1);
         }
     }
 
@@ -1415,10 +1236,10 @@ const Over = struct {
 
         over.snowBehind();
 
-        flyingBirds(s.frame);
+        flyingBirds(frame);
 
-        eatingBird(s.frame, 24, 128);
-        idleBird(s.frame, 134, 138);
+        eatingBird(frame, 24, 128);
+        idleBird(frame, 134, 138);
 
         const fg: u16 = if (over.pressFlipped) PRIMARY else WHITE;
 
@@ -1569,8 +1390,87 @@ const Scene = union(enum) {
     }
 };
 
+fn mouseLeft() bool {
+    return btf & w4.MOUSE_LEFT != 0;
+}
+
+fn mouseMiddle() bool {
+    return btf & w4.MOUSE_MIDDLE != 0;
+}
+
+fn mouseRight() bool {
+    return btf & w4.MOUSE_RIGHT != 0;
+}
+
+fn button1() bool {
+    return gtf & w4.BUTTON_1 != 0;
+}
+
+fn button2() bool {
+    return gtf & w4.BUTTON_2 != 0;
+}
+
+fn buttonUp() bool {
+    return gtf & w4.BUTTON_UP != 0;
+}
+
+fn buttonDown() bool {
+    return gtf & w4.BUTTON_DOWN != 0;
+}
+
+fn buttonLeft() bool {
+    return gtf & w4.BUTTON_LEFT != 0;
+}
+
+fn buttonRight() bool {
+    return gtf & w4.BUTTON_RIGHT != 0;
+}
+
+fn mouseLeftHeld() bool {
+    return buttons.* & w4.MOUSE_LEFT != 0;
+}
+
+fn button1Held() bool {
+    return gamepad.* & w4.BUTTON_1 != 0;
+}
+
+fn button2Held() bool {
+    return gamepad.* & w4.BUTTON_2 != 0;
+}
+
+fn buttonUpHeld() bool {
+    return gamepad.* & w4.BUTTON_UP != 0;
+}
+
+fn buttonDownHeld() bool {
+    return gamepad.* & w4.BUTTON_DOWN != 0;
+}
+
+fn buttonRightHeld() bool {
+    return gamepad.* & w4.BUTTON_RIGHT != 0;
+}
+
+fn buttonLeftHeld() bool {
+    return gamepad.* & w4.BUTTON_LEFT != 0;
+}
+
+fn transition(si: u2) void {
+    log("🎬 Scene  = {s}\n", .{switch (si) {
+        INTRO => "INTRO",
+        GAME => "GAME",
+        OVER => "OVER",
+        else => "UNKNOWN",
+    }});
+
+    _ = try scenes[si].enter();
+
+    disk.si = si;
+
+    save();
+}
+
 fn every(f: u32) bool {
-    return @mod(s.frame, f) == 0;
+    return @mod(frame, f) == 0;
 }
 
 // The colors
@@ -1599,7 +1499,7 @@ fn triFir(_: i32, p: Vec, _: Vec, _: f32, _: f32, _: f32) u16 {
     const x = p.xu();
     const y = p.yu();
 
-    const f: u16 = @intCast(@abs(@mod(s.frame, 64) / 32) + 1);
+    const f: u16 = @intCast(@abs(@mod(frame, 64) / 32) + 1);
 
     if (@mod(y, 4) == 0) {
         return WHITE;
@@ -1770,19 +1670,109 @@ fn idleBird(f: u32, x: i32, y: i32) void {
     w4.blitSub(bird.sprite, x, y, 16, 16, birdFrame * 16, 0, bird.width, bird.flags);
 }
 
+var frame: u32 = 0;
+
+// The inputs
+var buttons: *const u8 = w4.MOUSE_BUTTONS;
+var gamepad: *const u8 = w4.GAMEPAD1;
+
+var mouse: Vec = Vec.set(80);
+
+var mouseX: i32 = 80; // Mouse X
+var mouseY: i32 = 80; // Mouse Y
+
+var lastMouse: Vec = Vec.set(80);
+
+var blf: u8 = 0; // Buttons pressed last frame
+var btf: u8 = 0; // Buttons pressed this frame
+
+var glf: u8 = 0; // Gamepad pressed last frame
+var gtf: u8 = 0; // Gamepad pressed this frame
+
+var scenes: [3]Scene = .{
+    .{ .intro = Intro{} },
+    .{ .game = Game{} },
+    .{ .over = Over{} },
+};
+
+// Disk represents what is read and written
+// from the persistent storage by the game.
+const Disk = struct { si: u2 };
+
+var disk: Disk = .{ .si = 0 };
+
+fn save() void {
+    // Save the state disk into persistent storage
+    _ = w4.diskw(@ptrCast(&disk), @sizeOf(@TypeOf(disk)));
+}
+
+fn load(defaultScene: u2) u2 {
+    var d: Disk = .{ .si = defaultScene };
+
+    _ = w4.diskr(@ptrCast(&d), @sizeOf(@TypeOf(d)));
+
+    disk = d;
+
+    return d.si;
+}
+
+fn input() void {
+    // Update mouse press on this and last frame
+    btf = buttons.* & (buttons.* ^ blf);
+    blf = buttons.*;
+
+    gtf = gamepad.* & (gamepad.* ^ glf);
+    glf = gamepad.*;
+
+    if (buttons.* & w4.MOUSE_LEFT != 0) {
+        // Update mouse position
+        mouseX = @intCast(w4.MOUSE_X.*);
+        mouseY = @intCast(w4.MOUSE_Y.*);
+
+        if (mouseX < 0) mouseX = 0;
+        if (mouseY < 0) mouseY = 0;
+        if (mouseX > 160) mouseX = 160;
+        if (mouseY > 160) mouseY = 160;
+
+        mouse = V(@floatFromInt(mouseX), @floatFromInt(mouseY));
+        lastMouse = mouse;
+    }
+}
+
+fn draw() !void {
+    // Draw the scene
+    try scenes[disk.si].draw();
+}
+
 //
 // Exported functions for the WASM-4 game loop
 //
 
 export fn start() void {
     rng = prng.random();
-    s.start();
+
+    w4.trace(
+        \\    ______ _______ _______ _______ _______ _______ ___ ___ _____  _______
+        \\   |   __ |_     _|    |  |     __|       |     __|   |   |     ||_     _|
+        \\  /|   __ <_|   |_|       |    |  |   -   |__     |\     /|       || #9|\
+        \\.::|______|_______|__|____|_______|_______|_______| |___| |_______||___|::.
+        \\
+    );
+
+    // Transition to the scene loaded from disk
+    // defaulting to the OVER scene
+    transition(load(OVER));
 }
 
 export fn update() void {
-    // Update the state
-    s.update() catch unreachable;
+    input();
+
+    // Increment the frame counter
+    frame +%= 1;
+
+    // Update the scene specific state
+    try scenes[disk.si].update();
 
     // Draw the state
-    s.draw() catch unreachable;
+    draw() catch unreachable;
 }
