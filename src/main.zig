@@ -1279,8 +1279,6 @@ const Ship = struct {
 
             color(GRAY);
             line(x - 18, y, x - 20, y - 5);
-
-            color(GRAY);
             line(x - 19, y + 6, x, y);
 
             if (ship.speed > 0) {
@@ -1298,13 +1296,14 @@ const Ship = struct {
             }, wx, triPRIMARY);
 
             triangle(.{
-                I(-20 + x + 5, y),
+                I(-18 + x + 5, y),
                 I(-20 + x + 21, y - 6),
                 I(-20 + x + 18, y + 1),
             }, wx, triWHITE);
 
             color(GRAY);
             line(x - 20, y, x, y + 6);
+            line(x - 1, y, x, y - 5);
 
             if (ship.speed < 0) {
                 color(GRAY);
