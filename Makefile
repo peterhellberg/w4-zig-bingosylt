@@ -15,7 +15,7 @@ spy:
 
 .PHONY: run
 run:
-	w4 run --no-open --no-qr zig-out/lib/cart.wasm
+	w4 run --no-open --no-qr zig-out/bin/cart.wasm
 
 .PHONY: clean
 clean:
@@ -24,9 +24,9 @@ clean:
 
 .PHONY: bundle
 bundle: all
-	@w4 bundle zig-out/lib/cart.wasm --title ${TITLE} --html bundle/${NAME}.html 		# HTML
-	@w4 bundle zig-out/lib/cart.wasm --title ${TITLE} --linux bundle/${NAME}.elf 		# Linux (ELF)
-	@w4 bundle zig-out/lib/cart.wasm --title ${TITLE} --windows bundle/${NAME}.exe 	# Windows (PE32+)
+	@w4 bundle zig-out/bin/cart.wasm --title ${TITLE} --html bundle/${NAME}.html 		# HTML
+	@w4 bundle zig-out/bin/cart.wasm --title ${TITLE} --linux bundle/${NAME}.elf 		# Linux (ELF)
+	@w4 bundle zig-out/bin/cart.wasm --title ${TITLE} --windows bundle/${NAME}.exe 	# Windows (PE32+)
 	@zip -juq bundle/${ARCHIVE} bundle/${NAME}.html bundle/${NAME}.elf bundle/${NAME}.exe
 	@echo "✔ Updated bundle/${ARCHIVE}"
 
