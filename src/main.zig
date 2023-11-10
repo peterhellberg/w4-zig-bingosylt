@@ -34,8 +34,8 @@ const Sprite = @import("Sprite.zig");
 const Intro = struct {
     fn enter(intro: *Intro) !void {
         w4.PALETTE.* = intro.tangerineNoir;
-        intro.touchedZaps = .{false} ** 4;
-        intro.prevTouchedZaps = .{false} ** 4;
+        intro.touchedZaps = .{ false, false, false, false };
+        intro.prevTouchedZaps = .{ false, false, false, false };
         intro.powerOnFrame = 0;
     }
 
@@ -438,8 +438,8 @@ const Intro = struct {
     catLastPos: Vec = Vec.zero(),
     towerPos: Vec = V(80, 80),
 
-    touchedZaps: @Vector(4, bool) = .{false} ** 4,
-    prevTouchedZaps: @Vector(4, bool) = .{false} ** 4,
+    touchedZaps: @Vector(4, bool) = .{ false, false, false, false },
+    prevTouchedZaps: @Vector(4, bool) = .{ false, false, false, false },
 
     powerOnFrame: u32 = 0,
 
