@@ -342,8 +342,8 @@ const Intro = struct {
     }
 
     fn catline(intro: *Intro, a: Vec, b: Vec, size: u32, points: []const f32, catOffset: Vec) void {
-        var fframe: f32 = @floatFromInt(frame);
-        var t: f32 = @abs(@mod(fframe, 1000) - 500) / 500;
+        const fframe: f32 = @floatFromInt(frame);
+        const t: f32 = @abs(@mod(fframe, 1000) - 500) / 500;
         const catPos = a.lerp(b, t).sub(catOffset);
         const fsize: f32 = @floatFromInt(size);
         const offset = Vec.set(@divFloor(fsize, 2));
@@ -372,7 +372,7 @@ const Intro = struct {
     }
 
     fn scrollingTitle(intro: *Intro, down: i32) void {
-        var offset: i32 = @intCast(@mod(@divFloor(frame, 1), 480));
+        const offset: i32 = @intCast(@mod(@divFloor(frame, 1), 480));
 
         color(GRAY);
 
@@ -1618,8 +1618,8 @@ fn triangle(t: [3]Vec, wx: i32, colorFn: *const ColorFn) void {
 
 fn isTopLeft(a: Vec, b: Vec) bool {
     var edge = V(b.x() - a.x(), b.y() - a.y());
-    var is_top_edge = (edge.y() == 0) and (edge.x() > 0);
-    var is_left_edge = edge.y() < 0;
+    const is_top_edge = (edge.y() == 0) and (edge.x() > 0);
+    const is_left_edge = edge.y() < 0;
 
     return is_top_edge or is_left_edge;
 }
