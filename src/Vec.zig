@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const w4 = @import("wasm4.zig");
+const w4 = @import("w4");
 
 const Self = @This();
 

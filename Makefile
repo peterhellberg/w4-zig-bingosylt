@@ -7,15 +7,15 @@ PUBLIC_PATH=~/public_html/${GAME_PATH}
 HOSTNAME=peter.tilde.team
 
 all:
-	zig build -Doptimize=ReleaseSmall
+	zig build
 
 .PHONY: spy
 spy:
-	spy --inc src -q clear-zig build -Doptimize=ReleaseSmall
+	zig build spy
 
 .PHONY: run
 run:
-	w4 run --no-open --no-qr zig-out/bin/cart.wasm
+	zig build run
 
 .PHONY: clean
 clean:

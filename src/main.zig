@@ -1,7 +1,7 @@
 const std = @import("std");
 
 // WASM-4
-const w4 = @import("wasm4.zig");
+const w4 = @import("w4");
 
 const oval = w4.oval;
 const rect = w4.rect;

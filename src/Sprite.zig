@@ -1,4 +1,4 @@
-const w4 = @import("wasm4.zig");
+const w4 = @import("w4");
 
 const Vec = @import("Vec.zig");
 
